@@ -42,7 +42,7 @@ export default function Home() {
 
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [year, setYear] = useState('2024');
+    const [year, setYear] = useState('2025');
     const [search, setSearch] = useState('');
     const [cursor, setCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
@@ -90,6 +90,7 @@ export default function Home() {
             const baseQuery = new URLSearchParams({
                 year,
                 limit: '100', // Fetch in larger chunks for export
+                endpoint: selectedEndpoint,
             });
             if (search) {
                 baseQuery.set('search', search);
