@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Home, Settings, Menu, X, FolderSync, TrendingUp, BarChart3, Cloud, PanelLeftopen, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Database, Home, Settings, Menu, X, FolderSync, TrendingUp, BarChart3, Cloud, PanelLeftOpen, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
