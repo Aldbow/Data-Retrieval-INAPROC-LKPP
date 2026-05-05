@@ -270,7 +270,7 @@ export async function POST(request: Request) {
 
             // Final verification logic
             if (isComplete) {
-                const finalFileCheck = await getFileInfo(endpoint, year);
+                const finalFileCheck = await getFileInfo(endpoint, year, false);
                 if (finalFileCheck.recordCount === newState.totalRecords) {
                     finalVerification = 'verified';
                 } else {
@@ -283,8 +283,8 @@ export async function POST(request: Request) {
             // But usually if accumulatedData is 0, we did nothing.
         }
 
-        // Get final file info
-        const finalFileInfo = await getFileInfo(endpoint, year);
+        // Get final file info (using fastMode=false since we need exact record count for verification)
+        const finalFileInfo = await getFileInfo(endpoint, year, false);
 
         // If we didn't verify inside the loop (e.g. maxPages hit), verify now
         if (finalVerification === 'unchecked' && isComplete) {

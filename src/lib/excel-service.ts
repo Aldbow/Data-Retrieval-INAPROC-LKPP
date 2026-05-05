@@ -245,7 +245,8 @@ export async function overwriteExcel(
  */
 export async function getFileInfo(
     endpoint: string,
-    year: string
+    year: string,
+    fastMode: boolean = true
 ): Promise<{
     exists: boolean;
     path: string;
@@ -265,13 +266,20 @@ export async function getFileInfo(
 
     try {
         const stats = fs.statSync(filePath);
-        const { records } = await loadExistingRecords(filePath);
+        let recordCount = 0;
+        
+        // Only load and parse the full Excel file if fastMode is false
+        // Parsing full excel files for status checks causes severe performance issues
+        if (!fastMode) {
+            const { records } = await loadExistingRecords(filePath);
+            recordCount = records.length;
+        }
 
         return {
             exists: true,
             path: filePath,
             size: stats.size,
-            recordCount: records.length,
+            recordCount,
         };
     } catch (error) {
         return {

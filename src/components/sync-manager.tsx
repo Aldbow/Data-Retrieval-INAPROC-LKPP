@@ -13,6 +13,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
     Loader2,
     RefreshCw,
     Download,
@@ -395,70 +401,126 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                     No sync status available. Try refreshing.
                                 </div>
                             ) : (
-                                <StaggerContainer key="list">
-                                    {statuses.map((status) => {
-                                        const yearState = status.years.find((y) => y.year === year);
-                                        const progress = syncProgress[status.endpoint];
-                                        const isSyncingThis = syncing === status.endpoint;
+                                (() => {
+                                    // Group statuses by Version -> Category
+                                    const groupedStatuses = statuses.reduce((acc, status) => {
+                                        const version = status.endpoint.startsWith('/legacy') ? 'Legacy' : 'V1';
+                                        let category = 'Lainnya';
+                                        if (status.endpoint.includes('ekatalog')) category = 'E-Katalog';
+                                        else if (status.endpoint.includes('rup')) category = 'RUP';
+                                        else if (status.endpoint.includes('tender')) category = 'Tender';
 
-                                        return (
-                                            <StaggerItem key={status.endpoint}>
-                                                <div className={cn(
-                                                    "group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border bg-card/40 hover:bg-card/80 transition-all duration-300 gap-3",
-                                                    isSyncingThis ? "border-primary/50 shadow-md shadow-primary/5 ring-1 ring-primary/20" : "border-border/60"
-                                                )}>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                            <span className="font-semibold text-sm truncate text-foreground/90">
-                                                                {status.label}
-                                                            </span>
-                                                            {getStatusBadge(status.endpoint, status)}
-                                                        </div>
+                                        if (!acc[version]) acc[version] = {};
+                                        if (!acc[version][category]) acc[version][category] = [];
+                                        acc[version][category].push(status);
+                                        return acc;
+                                    }, {} as Record<string, Record<string, EndpointStatus[]>>);
 
-                                                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                                            <span className="flex items-center gap-1.5">
-                                                                <FolderOpen className="h-3 w-3 opacity-70" />
-                                                                {yearState ? yearState.state.filePath : 'No file'}
-                                                            </span>
-                                                            {yearState && (
-                                                                <span className="flex items-center gap-1.5 border-l border-border pl-4">
-                                                                    <Clock className="h-3 w-3 opacity-70" />
-                                                                    {formatDate(yearState.state.lastSyncDate)}
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                    return (
+                                        <Accordion type="multiple" defaultValue={['V1', 'Legacy']} className="w-full space-y-4">
+                                            {['V1', 'Legacy'].map(version => {
+                                                const categories = groupedStatuses[version];
+                                                if (!categories) return null;
 
-                                                        {progress?.records > 0 && (
-                                                            <div className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded inline-block">
-                                                                Processed {progress.records.toLocaleString()} records so far...
+                                                return (
+                                                    <AccordionItem key={version} value={version} className="border-border/60 bg-card/40 rounded-xl px-4 border">
+                                                        <AccordionTrigger className="hover:no-underline font-semibold text-lg py-4">
+                                                            <div className="flex items-center gap-2">
+                                                                {version} Endpoints
+                                                                <Badge variant="outline" className="text-[10px] h-5 bg-background">
+                                                                    {Object.values(categories).flat().length}
+                                                                </Badge>
                                                             </div>
-                                                        )}
-                                                    </div>
+                                                        </AccordionTrigger>
+                                                        <AccordionContent>
+                                                            <Accordion type="multiple" defaultValue={['E-Katalog', 'RUP', 'Tender', 'Lainnya'].map(c => `${version}-${c}`)} className="w-full space-y-3 mt-2">
+                                                                {['E-Katalog', 'RUP', 'Tender', 'Lainnya'].map(category => {
+                                                                    const items = categories[category];
+                                                                    if (!items || items.length === 0) return null;
 
-                                                    <ScaleOnHover>
-                                                        <Button
-                                                            variant={isSyncingThis ? "secondary" : "ghost"}
-                                                            size="sm"
-                                                            onClick={() => syncEndpoint(status.endpoint)}
-                                                            disabled={syncing !== null || batchSyncing}
-                                                            className={cn(
-                                                                "w-full sm:w-auto shrink-0 gap-2 font-medium border border-transparent",
-                                                                !isSyncingThis && "group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/10"
-                                                            )}
-                                                        >
-                                                            {isSyncingThis ? (
-                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                            ) : (
-                                                                <Download className="h-4 w-4" />
-                                                            )}
-                                                            {isSyncingThis ? 'Syncing...' : 'Sync Now'}
-                                                        </Button>
-                                                    </ScaleOnHover>
-                                                </div>
-                                            </StaggerItem>
-                                        );
-                                    })}
-                                </StaggerContainer>
+                                                                    return (
+                                                                        <AccordionItem key={`${version}-${category}`} value={`${version}-${category}`} className="border-border/60 bg-background/50 rounded-lg px-4 border">
+                                                                            <AccordionTrigger className="hover:no-underline font-medium text-md py-3">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {category}
+                                                                                    <Badge variant="secondary" className="text-[10px] h-5">{items.length}</Badge>
+                                                                                </div>
+                                                                            </AccordionTrigger>
+                                                                            <AccordionContent className="pt-2 pb-4">
+                                                                                <div className="grid grid-cols-1 gap-2">
+                                                                                    {items.map((status) => {
+                                                                                        const yearState = status.years.find((y) => y.year === year);
+                                                                                        const progress = syncProgress[status.endpoint];
+                                                                                        const isSyncingThis = syncing === status.endpoint;
+
+                                                                                        return (
+                                                                                            <div key={status.endpoint} className={cn(
+                                                                                                "group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border bg-card/40 hover:bg-card/80 transition-all duration-300 gap-3",
+                                                                                                isSyncingThis ? "border-primary/50 shadow-md shadow-primary/5 ring-1 ring-primary/20" : "border-border/60"
+                                                                                            )}>
+                                                                                                <div className="flex-1 min-w-0">
+                                                                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                                                                        <span className="font-semibold text-sm truncate text-foreground/90">
+                                                                                                            {status.label}
+                                                                                                        </span>
+                                                                                                        {getStatusBadge(status.endpoint, status)}
+                                                                                                    </div>
+
+                                                                                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                                                                                        <span className="flex items-center gap-1.5">
+                                                                                                            <FolderOpen className="h-3 w-3 opacity-70" />
+                                                                                                            {yearState ? yearState.state.filePath : 'No file'}
+                                                                                                        </span>
+                                                                                                        {yearState && (
+                                                                                                            <span className="flex items-center gap-1.5 border-l border-border pl-4">
+                                                                                                                <Clock className="h-3 w-3 opacity-70" />
+                                                                                                                {formatDate(yearState.state.lastSyncDate)}
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                    </div>
+
+                                                                                                    {progress?.records > 0 && (
+                                                                                                        <div className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded inline-block">
+                                                                                                            Processed {progress.records.toLocaleString()} records so far...
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
+
+                                                                                                <ScaleOnHover>
+                                                                                                    <Button
+                                                                                                        variant={isSyncingThis ? "secondary" : "ghost"}
+                                                                                                        size="sm"
+                                                                                                        onClick={() => syncEndpoint(status.endpoint)}
+                                                                                                        disabled={syncing !== null || batchSyncing}
+                                                                                                        className={cn(
+                                                                                                            "w-full sm:w-auto shrink-0 gap-2 font-medium border border-transparent",
+                                                                                                            !isSyncingThis && "group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/10"
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {isSyncingThis ? (
+                                                                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                                                                        ) : (
+                                                                                                            <Download className="h-4 w-4" />
+                                                                                                        )}
+                                                                                                        {isSyncingThis ? 'Syncing...' : 'Sync Now'}
+                                                                                                    </Button>
+                                                                                                </ScaleOnHover>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </AccordionContent>
+                                                                        </AccordionItem>
+                                                                    );
+                                                                })}
+                                                            </Accordion>
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                );
+                                            })}
+                                        </Accordion>
+                                    );
+                                })()
                             )}
                         </div>
                     </ScrollArea>

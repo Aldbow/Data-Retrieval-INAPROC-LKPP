@@ -70,8 +70,8 @@ export async function GET(request: Request) {
                         year: y,
                         state: {
                             ...state,
-                            // Update totalRecords from actual file if exists
-                            totalRecords: fileInfo.exists ? fileInfo.recordCount : 0,
+                            // In fastMode, getFileInfo doesn't return recordCount to save memory. Use state.
+                            totalRecords: fileInfo.exists ? (state?.totalRecords || 0) : 0,
                         },
                         fileExists: fileInfo.exists,
                     };
