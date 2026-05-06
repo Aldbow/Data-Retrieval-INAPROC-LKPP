@@ -5,8 +5,12 @@
 
 import { NextResponse } from 'next/server';
 import { getSyncState, updateSyncState, ensureEndpointFolder } from '@/lib/sync-state';
-import { appendToExcel, overwriteExcel, getFileInfo } from '@/lib/excel-service';
+import { appendToExcel, overwriteExcel, getFileInfo, deleteDataFile } from '@/lib/excel-service';
 import { getFilePath } from '@/lib/drive-config';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 const BASE_URL = 'https://data.inaproc.id/api';
 const JWT_TOKEN = process.env.JWT_TOKEN;
@@ -43,6 +47,7 @@ async function fetchWithRetry(url: string, options: RequestInit, retryCount = 0)
 
         const res = await fetch(url, {
             ...options,
+            cache: 'no-store',
             signal: controller.signal,
         });
 
@@ -80,7 +85,7 @@ async function fetchWithRetry(url: string, options: RequestInit, retryCount = 0)
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { endpoint, year, batchSize = 100, maxPages = 10 } = body;
+        const { endpoint, year, batchSize = 100, maxPages = 10, forceOverwrite = false } = body;
 
         if (!endpoint || !year) {
             return NextResponse.json(
@@ -122,6 +127,12 @@ export async function POST(request: Request) {
 
         // Ensure folder exists
         await ensureEndpointFolder(endpoint);
+
+        if (forceOverwrite) {
+            console.log(`Force Overwrite requested. Deleting existing file and state for ${endpoint} ${year}`);
+            await deleteDataFile(endpoint, year);
+            await updateSyncState(endpoint, year, { lastCursor: null, totalRecords: 0, filePath: '' });
+        }
 
         // Get current sync state
         const currentState = await getSyncState(endpoint, year);
