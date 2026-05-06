@@ -369,7 +369,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                             <p className="text-muted-foreground">Try refreshing the status or selecting another category.</p>
                         </div>
                     ) : (
-                        <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
+                        <StaggerContainer key={`${activeVersionTab}-${activeCategoryTab}`} className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
                             {displayedEndpoints.map((status) => {
                                 const yearState = status.years.find((y) => y.year === year);
                                 const progress = syncProgress[status.endpoint];

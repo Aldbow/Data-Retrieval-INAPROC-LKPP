@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -194,6 +194,10 @@ export default function Home() {
         }
     }, [year, selectedEndpoint]);
 
+    const filteredData = search 
+        ? data.filter(item => Object.values(item).some(val => String(val).toLowerCase().includes(search.toLowerCase())))
+        : data;
+
     useEffect(() => {
         const sourceData = allLegacyData.length > 0 ? allLegacyData : data;
         const priceKeys = ['total_harga', 'pagu', 'nilai_kontrak', 'nilai_pagu_paket', 'total_pagu'];
@@ -301,7 +305,6 @@ export default function Home() {
                                     className="w-full pl-11 bg-black/5 dark:bg-white/5 border border-transparent hover:border-black/10 dark:hover:border-white/10 focus-visible:border-primary/30 shadow-inner rounded-full text-sm h-12 transition-all focus-visible:ring-4 focus-visible:ring-primary/10 placeholder:text-muted-foreground/60"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && fetchData(true)}
                                 />
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                     <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded-md border border-black/10 dark:border-white/10 bg-background/50 px-2 font-mono text-[10px] font-medium text-muted-foreground shadow-sm">
@@ -395,7 +398,7 @@ export default function Home() {
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {data.length === 0 && !loading ? (
+                                                    {filteredData.length === 0 && !loading ? (
                                                         <TableRow className="border-none hover:bg-transparent">
                                                             <TableCell colSpan={columns.length + 2} className="h-[500px] text-center">
                                                                 <div className="flex flex-col items-center justify-center gap-4">
@@ -408,7 +411,7 @@ export default function Home() {
                                                             </TableCell>
                                                         </TableRow>
                                                     ) : (
-                                                        data.map((item, index) => (
+                                                        filteredData.map((item, index) => (
                                                             <TableRow
                                                                 key={index}
                                                                 className="group border-b border-border/20 hover:bg-primary/5 transition-all cursor-pointer"

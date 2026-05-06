@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Database, Home, Settings, FolderSync, TrendingUp, Bell, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -75,7 +77,7 @@ export function AppShell({ children, activeTab, onTabChange }: { children: React
 
             {/* Floating Bottom Dock */}
             <div className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                <div className="pointer-events-auto p-1.5 bg-background/70 backdrop-blur-[24px] border border-border/50 rounded-full shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] flex items-center gap-1 mx-auto transition-all">
+                <div className="pointer-events-auto p-1.5 bg-background/70 backdrop-blur-[24px] border border-border/50 rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] flex items-center gap-1.5 mx-auto transition-all">
                     <TooltipProvider delayDuration={0}>
                         {navItems.map((item) => {
                             const isActive = activeTab === item.value;
@@ -85,7 +87,7 @@ export function AppShell({ children, activeTab, onTabChange }: { children: React
                                         <button
                                             onClick={() => onTabChange(item.value)}
                                             className={cn(
-                                                "relative group flex items-center justify-center h-10 w-10 sm:w-12 sm:h-12 rounded-full transition-all duration-300 outline-none",
+                                                "relative group flex flex-col items-center justify-center h-12 w-16 sm:w-20 sm:h-14 rounded-xl transition-all duration-300 outline-none gap-1",
                                                 isActive ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 dark:hover:bg-white/10"
                                             )}
                                         >
@@ -93,10 +95,16 @@ export function AppShell({ children, activeTab, onTabChange }: { children: React
                                                 "h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-300",
                                                 isActive ? "scale-110" : "group-hover:scale-110 group-hover:-translate-y-0.5"
                                             )} />
+                                            <span className={cn(
+                                                "text-[9px] sm:text-[10px] font-semibold tracking-wide leading-none transition-all duration-300",
+                                                isActive ? "opacity-100" : "opacity-70 group-hover:opacity-100"
+                                            )}>
+                                                {item.title}
+                                            </span>
                                             {isActive && (
                                                 <motion.div
                                                     layoutId="dock-indicator"
-                                                    className="absolute inset-0 bg-primary/10 rounded-full z-[-1]"
+                                                    className="absolute inset-0 bg-primary/10 rounded-xl z-[-1]"
                                                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                                 />
                                             )}
