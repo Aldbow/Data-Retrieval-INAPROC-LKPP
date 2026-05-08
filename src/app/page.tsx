@@ -36,7 +36,7 @@ export default function Home() {
     const [activeTab, setActiveTab] = useState('browser');
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [year, setYear] = useState('2025');
+    const [year, setYear] = useState('2026');
     const [search, setSearch] = useState('');
     const [cursor, setCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
@@ -245,7 +245,7 @@ export default function Home() {
                                         <h3 className="font-semibold text-muted-foreground uppercase tracking-wider text-sm">Total Value (Pagu)</h3>
                                     </div>
                                     <div className="mt-4 flex items-end gap-3">
-                                        <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 via-emerald-600 to-primary drop-shadow-sm">
+                                        <h1 suppressHydrationWarning className="text-5xl sm:text-7xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 via-emerald-600 to-primary drop-shadow-sm">
                                             {formatCurrency(stats.totalPagu).replace('Rp', '').trim()}
                                         </h1>
                                         <span className="text-2xl text-muted-foreground mb-3 font-medium bg-background/50 px-3 py-1 rounded-lg backdrop-blur-md">IDR</span>
@@ -316,7 +316,7 @@ export default function Home() {
                                         <SelectValue placeholder="Year" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-2xl shadow-xl">
-                                        {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
+                                        {Array.from({ length: 2027 - 2018 + 1 }, (_, i) => 2027 - i).map((y) => (
                                             <SelectItem key={y} value={String(y)} className="rounded-xl cursor-pointer font-medium focus:bg-primary/10 focus:text-primary">{y}</SelectItem>
                                         ))}
                                     </SelectContent>

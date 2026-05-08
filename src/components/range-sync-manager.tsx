@@ -32,7 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 export function RangeSyncManager() {
     const [rangeSyncConfig, setRangeSyncConfig] = useState({
         startYear: '2021',
-        endYear: '2026',
+        endYear: '2027',
         currentYear: null as string | null,
         isSyncing: false,
         forceSync: false
@@ -265,7 +265,7 @@ export function RangeSyncManager() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-2xl shadow-xl">
-                                    {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
+                                    {Array.from({ length: 2027 - 2018 + 1 }, (_, i) => 2027 - i).map((y) => (
                                         <SelectItem key={y} value={String(y)} className="rounded-xl font-medium">{y}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -278,7 +278,7 @@ export function RangeSyncManager() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-2xl shadow-xl">
-                                    {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
+                                    {Array.from({ length: 2027 - 2018 + 1 }, (_, i) => 2027 - i).map((y) => (
                                         <SelectItem key={y} value={String(y)} className="rounded-xl font-medium">{y}</SelectItem>
                                     ))}
                                 </SelectContent>

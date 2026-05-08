@@ -259,7 +259,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                         <SelectValue placeholder="Year" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-2xl shadow-xl">
-                                        {Array.from({ length: 2026 - 2018 + 1 }, (_, i) => 2026 - i).map((y) => (
+                                        {Array.from({ length: 2027 - 2018 + 1 }, (_, i) => 2027 - i).map((y) => (
                                             <SelectItem key={y} value={String(y)} className="rounded-xl font-medium focus:bg-primary/10 focus:text-primary cursor-pointer">{y}</SelectItem>
                                         ))}
                                     </SelectContent>
