@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,85 +30,107 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { AppShell } from '@/components/layout/app-shell';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from "@/lib/utils";
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
     const [selectedEndpoint, setSelectedEndpoint] = useState(ENDPOINTS[0].value);
     const [activeTab, setActiveTab] = useState('browser');
-    const [data, setData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
     const [year, setYear] = useState('2026');
     const [search, setSearch] = useState('');
-    const [cursor, setCursor] = useState<string | null>(null);
-    const [hasMore, setHasMore] = useState(false);
-    const [apiStatus, setApiStatus] = useState<'connected' | 'disconnected'>('connected');
-    const [allLegacyData, setAllLegacyData] = useState<any[]>([]);
-    const [legacyPage, setLegacyPage] = useState(0);
-    const ROWS_PER_PAGE = 50;
     const [selectedItem, setSelectedItem] = useState<any | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
-    const [stats, setStats] = useState({ totalItems: 0, totalPagu: 0, activeCount: 0 });
+    const parentRef = useRef<HTMLDivElement>(null);
+    const [apiStatus, setApiStatus] = useState<'connected' | 'disconnected'>('connected');
+
+    const requiresId = !!ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.requiresId;
+
+    const fetchPage = async ({ pageParam = null }: any) => {
+        const query = new URLSearchParams({
+            year,
+            limit: '50',
+            endpoint: selectedEndpoint,
+        });
+        if (search) query.set('search', search);
+        if (pageParam) query.set('cursor', pageParam);
+
+        const res = await fetch(`/api/inaproc?${query.toString()}`);
+        if (!res.ok) {
+            setApiStatus('disconnected');
+            throw new Error("API Response not ok");
+        }
+        setApiStatus('connected');
+        return res.json();
+    };
+
+    const {
+        data: queryData,
+        fetchNextPage,
+        hasNextPage,
+        isLoading,
+        isFetchingNextPage,
+        refetch
+    } = useInfiniteQuery({
+        queryKey: ['inaproc', selectedEndpoint, year, search],
+        queryFn: fetchPage,
+        getNextPageParam: (lastPage) => {
+            if (lastPage.has_more === false) return undefined;
+            return lastPage.cursor || (lastPage.meta && lastPage.meta.cursor) || undefined;
+        },
+        enabled: !requiresId,
+        initialPageParam: null as string | null
+    });
+
+    const flatData = queryData?.pages.flatMap(page => page.data || []) || [];
 
     const getDynamicColumns = () => {
-        if (data.length === 0) return [];
+        if (flatData.length === 0) return [];
         const keys = new Set<string>();
-        data.slice(0, 5).forEach(item => Object.keys(item).forEach(k => keys.add(k)));
+        flatData.slice(0, 5).forEach(item => Object.keys(item).forEach(k => keys.add(k)));
         return Array.from(keys);
     };
     const columns = getDynamicColumns();
 
+    const rowVirtualizer = useVirtualizer({
+        count: flatData.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 64,
+        overscan: 5,
+    });
+    
+    const virtualItems = rowVirtualizer.getVirtualItems();
+    const paddingTop = virtualItems.length > 0 ? virtualItems[0]?.start || 0 : 0;
+    const paddingBottom = virtualItems.length > 0
+        ? rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]?.end || 0)
+        : 0;
+
     const handleExport = async () => {
         setIsExporting(true);
-        const toastId = toast.loading("Starting export...");
+        const toastId = toast.loading("Generating Export on server...");
 
         try {
-            const XLSX = await import("xlsx");
-            let allExportData: any[] = [];
-            let currentCursor: string | null = null;
-            let keepFetching = true;
-            let pageCount = 0;
-
-            const baseQuery = new URLSearchParams({
+            const query = new URLSearchParams({
                 year,
-                limit: '100',
                 endpoint: selectedEndpoint,
             });
-            if (search) baseQuery.set('search', search);
+            if (search) query.set('search', search);
 
-            while (keepFetching) {
-                const query = new URLSearchParams(baseQuery);
-                if (currentCursor) query.set('cursor', currentCursor);
+            const res = await fetch(`/api/export?${query.toString()}`);
+            if (!res.ok) throw new Error("Failed to generate export");
 
-                const res = await fetch(`/api/inaproc?${query.toString()}`);
-                if (!res.ok) throw new Error("Failed to fetch data for export");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `INAPROC_Data_${year}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
 
-                const result = await res.json();
-                const pageData = result.data || [];
-
-                if (pageData.length === 0) {
-                    keepFetching = false;
-                } else {
-                    allExportData = [...allExportData, ...pageData];
-                    const nextCursor = result.cursor || (result.meta && result.meta.cursor);
-                    if (nextCursor && result.has_more !== false) {
-                        currentCursor = nextCursor;
-                    } else {
-                        keepFetching = false;
-                    }
-                }
-
-                if (pageCount > 100) break;
-                pageCount++;
-                toast.loading(`Exporting... (${allExportData.length} rows)`, { id: toastId });
-                await new Promise(r => setTimeout(r, 200));
-            }
-
-            const worksheet = XLSX.utils.json_to_sheet(allExportData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, `Data ${year}`);
-            const filename = `INAPROC_Data_${year}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-            XLSX.writeFile(workbook, filename);
-            toast.success(`Export complete! Saved as ${filename}`, { id: toastId });
+            toast.success(`Export complete!`, { id: toastId });
         } catch (error) {
             console.error("Export failed:", error);
             toast.error("Export failed. Please check console for details.", { id: toastId });
@@ -117,95 +139,16 @@ export default function Home() {
         }
     };
 
-    const fetchData = async (reset = false, nextCursor: string | null = null) => {
-        const currentEp = ENDPOINTS.find(ep => ep.value === selectedEndpoint);
-        if (currentEp?.requiresId) {
-            setLoading(false);
-            setData([]);
-            return;
-        }
-
-        if (!reset && nextCursor === 'CLIENT_SIDE' && allLegacyData.length > 0) {
-            const nextPage = legacyPage + 1;
-            const start = nextPage * ROWS_PER_PAGE;
-            const end = start + ROWS_PER_PAGE;
-            setData(prev => [...prev, ...allLegacyData.slice(start, end)]);
-            setLegacyPage(nextPage);
-            setHasMore(end < allLegacyData.length);
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const query = new URLSearchParams({
-                year,
-                limit: '50',
-                endpoint: selectedEndpoint,
-            });
-            if (nextCursor && nextCursor !== 'CLIENT_SIDE') query.set('cursor', nextCursor);
-            if (search) query.set('search', search);
-
-            const res = await fetch(`/api/inaproc?${query.toString()}`);
-            if (!res.ok) throw new Error("API Response not ok");
-            const result = await res.json();
-            setApiStatus('connected');
-
-            if (result.data) {
-                if (reset) {
-                    const isLegacyLarge = result.meta?.total > ROWS_PER_PAGE && result.has_more === false;
-                    if (isLegacyLarge) {
-                        setAllLegacyData(result.data);
-                        setData(result.data.slice(0, ROWS_PER_PAGE));
-                        setLegacyPage(0);
-                        setHasMore(true);
-                        setCursor('CLIENT_SIDE');
-                    } else {
-                        setAllLegacyData([]);
-                        setData(result.data);
-                        const newCursor = result.cursor || (result.meta && result.meta.cursor);
-                        setCursor(newCursor);
-                        setHasMore(!!newCursor);
-                    }
-                    toast.success(`Loaded ${result.data.length} records`);
-                } else {
-                    setData(prev => [...prev, ...result.data]);
-                    const newCursor = result.cursor || (result.meta && result.meta.cursor);
-                    setCursor(newCursor);
-                    setHasMore(!!newCursor);
-                }
-            } else {
-                if (reset) setData([]);
-            }
-        } catch (error) {
-            console.error("Failed to fetch data", error);
-            toast.error("Failed to fetch data from API");
-            setApiStatus('disconnected');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        setCursor(null);
-        setHasMore(false);
-        setData([]);
-        if (!ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.requiresId) {
-            fetchData(true);
-        }
-    }, [year, selectedEndpoint]);
-
-    useEffect(() => {
-        const sourceData = allLegacyData.length > 0 ? allLegacyData : data;
+    const stats = useMemo(() => {
         const priceKeys = ['total_harga', 'pagu', 'nilai_kontrak', 'nilai_pagu_paket', 'total_pagu'];
-
-        const totalPagu = sourceData.reduce((acc, item) => {
+        const totalPagu = flatData.reduce((acc, item) => {
             for (const key of priceKeys) {
                 if (item[key]) return acc + (parseFloat(item[key]) || 0);
             }
             return acc;
         }, 0);
 
-        const activeCount = sourceData.reduce((acc, item) => {
+        const activeCount = flatData.reduce((acc, item) => {
             const statusKey = Object.keys(item).find(k => k.toLowerCase().includes('status'));
             if (statusKey) {
                 const statusVal = String(item[statusKey]).toLowerCase();
@@ -216,8 +159,8 @@ export default function Home() {
             return acc;
         }, 0);
 
-        setStats({ totalItems: sourceData.length, totalPagu, activeCount });
-    }, [data, allLegacyData]);
+        return { totalItems: flatData.length, totalPagu, activeCount };
+    }, [flatData]);
 
     const formatCurrency = (val: number) => {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
@@ -301,7 +244,7 @@ export default function Home() {
                                     className="w-full pl-11 bg-black/5 dark:bg-white/5 border border-transparent hover:border-black/10 dark:hover:border-white/10 focus-visible:border-primary/30 shadow-inner rounded-full text-sm h-12 transition-all focus-visible:ring-4 focus-visible:ring-primary/10 placeholder:text-muted-foreground/60"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && fetchData(true)}
+                                    onKeyDown={(e) => e.key === 'Enter' && refetch()}
                                 />
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                     <kbd className="hidden sm:inline-flex h-6 items-center gap-1 rounded-md border border-black/10 dark:border-white/10 bg-background/50 px-2 font-mono text-[10px] font-medium text-muted-foreground shadow-sm">
@@ -348,7 +291,7 @@ export default function Home() {
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <Button variant="outline" size="icon" onClick={() => fetchData(true)} disabled={loading || isExporting} className="h-12 w-12 rounded-full border border-black/10 dark:border-white/10 bg-background/50 hover:bg-secondary hover:text-primary transition-all shadow-sm">
+                                                <Button variant="outline" size="icon" onClick={() => { setSearch(''); refetch(); }} disabled={isLoading || isExporting} className="h-12 w-12 rounded-full border border-black/10 dark:border-white/10 bg-background/50 hover:bg-secondary hover:text-primary transition-all shadow-sm">
                                                     <Filter className="h-4 w-4" />
                                                 </Button>
                                             </TooltipTrigger>
@@ -356,7 +299,7 @@ export default function Home() {
                                         </Tooltip>
                                     </TooltipProvider>
 
-                                    <Button onClick={handleExport} disabled={loading || isExporting} className="h-12 px-6 rounded-full gap-2 shadow-lg shadow-primary/25 bg-gradient-to-b from-primary/90 to-primary hover:from-primary hover:to-primary/90 border border-primary/20 flex-1 sm:flex-none text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                                    <Button onClick={handleExport} disabled={isLoading || isExporting} className="h-12 px-6 rounded-full gap-2 shadow-lg shadow-primary/25 bg-gradient-to-b from-primary/90 to-primary hover:from-primary hover:to-primary/90 border border-primary/20 flex-1 sm:flex-none text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]">
                                         {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                         {isExporting ? 'Exporting...' : 'Export CSV'}
                                     </Button>
@@ -381,8 +324,8 @@ export default function Home() {
                             ) : (
                                 <div className="rounded-[2.5rem] border border-border/50 bg-card/30 backdrop-blur-xl shadow-xl overflow-hidden flex flex-col h-[700px] relative">
                                     <div className="p-0 flex-1 overflow-hidden relative">
-                                        <div className="absolute inset-0 overflow-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
-                                            <table className="w-full text-sm text-left border-collapse">
+                                        <div ref={parentRef} className="absolute inset-0 overflow-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                                            <table className="w-full text-sm text-left border-collapse relative">
                                                 <TableHeader className="sticky top-0 z-20 bg-background/80 backdrop-blur-2xl shadow-[0_1px_0_rgba(255,255,255,0.05)]">
                                                     <TableRow className="border-none hover:bg-transparent">
                                                         <TableHead className="w-[80px] text-center font-bold text-muted-foreground uppercase tracking-wider text-xs py-6">Row</TableHead>
@@ -395,9 +338,21 @@ export default function Home() {
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {data.length === 0 && !loading ? (
+                                                    {isLoading ? (
+                                                        Array.from({ length: 10 }).map((_, index) => (
+                                                            <TableRow key={index} className="border-b border-border/20">
+                                                                <TableCell className="py-5"><Skeleton className="h-4 w-8 mx-auto" /></TableCell>
+                                                                {columns.length > 0 ? columns.map(key => (
+                                                                    <TableCell key={key} className="px-6 py-5"><Skeleton className="h-4 w-full max-w-[200px]" /></TableCell>
+                                                                )) : (
+                                                                    <TableCell colSpan={5} className="px-6 py-5"><Skeleton className="h-4 w-full" /></TableCell>
+                                                                )}
+                                                                <TableCell><Skeleton className="h-8 w-8 rounded-full ml-auto" /></TableCell>
+                                                            </TableRow>
+                                                        ))
+                                                    ) : flatData.length === 0 ? (
                                                         <TableRow className="border-none hover:bg-transparent">
-                                                            <TableCell colSpan={columns.length + 2} className="h-[500px] text-center">
+                                                            <TableCell colSpan={columns.length + 2 || 6} className="h-[500px] text-center">
                                                                 <div className="flex flex-col items-center justify-center gap-4">
                                                                     <div className="h-20 w-20 bg-muted/50 rounded-3xl flex items-center justify-center mb-2">
                                                                         <Box className="h-10 w-10 text-muted-foreground opacity-50" />
@@ -408,61 +363,70 @@ export default function Home() {
                                                             </TableCell>
                                                         </TableRow>
                                                     ) : (
-                                                        data.map((item, index) => (
-                                                            <TableRow
-                                                                key={index}
-                                                                className="group border-b border-border/20 hover:bg-primary/5 transition-all cursor-pointer"
-                                                                onClick={() => {
-                                                                    setSelectedItem(item);
-                                                                    setIsSheetOpen(true);
-                                                                }}
-                                                            >
-                                                                <TableCell className="text-center font-mono text-xs text-muted-foreground/50 group-hover:text-primary transition-colors py-5">
-                                                                    {String(index + 1).padStart(3, '0')}
-                                                                </TableCell>
-                                                                {columns.map(key => {
-                                                                    const val = item[key];
-                                                                    return (
-                                                                        <TableCell key={key} className="px-6 py-5 max-w-[350px] truncate text-muted-foreground group-hover:text-foreground transition-colors font-medium">
-                                                                            {(() => {
-                                                                                if (val === null || val === undefined) return <span className="text-muted-foreground/30 font-light">&mdash;</span>;
-                                                                                if (typeof val === 'number' && (key.includes('harga') || key.includes('pagu') || key.includes('nilai'))) {
-                                                                                    return <span className="font-mono text-emerald-500 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-md">{formatCurrency(val)}</span>;
-                                                                                }
-                                                                                if (typeof val === 'string' && key.includes('status')) {
-                                                                                    return <Badge variant="secondary" className="font-medium text-[11px] px-3 py-1 rounded-full bg-secondary/80 text-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">{val}</Badge>;
-                                                                                }
-                                                                                if (typeof val === 'object') return <span className="italic text-xs opacity-50">JSON Object</span>;
-                                                                                return <span title={String(val)}>{String(val)}</span>;
-                                                                            })()}
+                                                        <>
+                                                            {paddingTop > 0 && <tr><td style={{ height: `${paddingTop}px` }} /></tr>}
+                                                            {virtualItems.map((virtualRow) => {
+                                                                const item = flatData[virtualRow.index];
+                                                                return (
+                                                                    <TableRow
+                                                                        key={virtualRow.index}
+                                                                        ref={rowVirtualizer.measureElement}
+                                                                        data-index={virtualRow.index}
+                                                                        className="group border-b border-border/20 hover:bg-primary/5 transition-all cursor-pointer"
+                                                                        onClick={() => {
+                                                                            setSelectedItem(item);
+                                                                            setIsSheetOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        <TableCell className="text-center font-mono text-xs text-muted-foreground/50 group-hover:text-primary transition-colors py-5">
+                                                                            {String(virtualRow.index + 1).padStart(3, '0')}
                                                                         </TableCell>
-                                                                    );
-                                                                })}
-                                                                <TableCell className="pr-6 text-right">
-                                                                    <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                        <div className="h-9 w-9 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md shadow-primary/30 transform group-hover:scale-110 transition-transform">
-                                                                            <Eye className="h-4 w-4" />
-                                                                        </div>
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))
+                                                                        {columns.map(key => {
+                                                                            const val = item[key];
+                                                                            return (
+                                                                                <TableCell key={key} className="px-6 py-5 max-w-[350px] truncate text-muted-foreground group-hover:text-foreground transition-colors font-medium">
+                                                                                    {(() => {
+                                                                                        if (val === null || val === undefined) return <span className="text-muted-foreground/30 font-light">&mdash;</span>;
+                                                                                        if (typeof val === 'number' && (key.includes('harga') || key.includes('pagu') || key.includes('nilai'))) {
+                                                                                            return <span className="font-mono text-emerald-500 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-md">{formatCurrency(val)}</span>;
+                                                                                        }
+                                                                                        if (typeof val === 'string' && key.includes('status')) {
+                                                                                            return <Badge variant="secondary" className="font-medium text-[11px] px-3 py-1 rounded-full bg-secondary/80 text-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">{val}</Badge>;
+                                                                                        }
+                                                                                        if (typeof val === 'object') return <span className="italic text-xs opacity-50">JSON Object</span>;
+                                                                                        return <span title={String(val)}>{String(val)}</span>;
+                                                                                    })()}
+                                                                                </TableCell>
+                                                                            );
+                                                                        })}
+                                                                        <TableCell className="pr-6 text-right">
+                                                                            <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                <div className="h-9 w-9 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md shadow-primary/30 transform group-hover:scale-110 transition-transform">
+                                                                                    <Eye className="h-4 w-4" />
+                                                                                </div>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            })}
+                                                            {paddingBottom > 0 && <tr><td style={{ height: `${paddingBottom}px` }} /></tr>}
+                                                        </>
                                                     )}
                                                 </TableBody>
                                             </table>
                                         </div>
                                     </div>
                                     
-                                    {(hasMore || loading) && (
+                                    {(hasNextPage || isFetchingNextPage) && (
                                         <div className="p-4 border-t border-border/30 bg-background/60 backdrop-blur-xl flex justify-center sticky bottom-0 z-20">
                                             <Button
                                                 variant="outline"
-                                                onClick={(e) => { e.preventDefault(); fetchData(false, cursor); }}
-                                                disabled={loading}
+                                                onClick={(e) => { e.preventDefault(); fetchNextPage(); }}
+                                                disabled={isFetchingNextPage || isLoading}
                                                 className="w-full max-w-md gap-2 font-bold rounded-full h-12 bg-background/50 hover:bg-secondary border-border/50 shadow-sm"
                                             >
-                                                {loading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <TrendingUp className="h-5 w-5 text-primary" />}
-                                                {loading ? 'Fetching more records...' : 'Load More Data'}
+                                                {isFetchingNextPage ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <TrendingUp className="h-5 w-5 text-primary" />}
+                                                {isFetchingNextPage ? 'Fetching more records...' : 'Load More Data'}
                                             </Button>
                                         </div>
                                     )}
@@ -480,7 +444,7 @@ export default function Home() {
                                 <p className="text-muted-foreground mt-2 font-medium">Synchronize legacy endpoints to standard format</p>
                             </div>
                             <div className="w-full">
-                                <SyncManager year={year} onSyncComplete={() => fetchData(true)} onYearChange={setYear} />
+                                <SyncManager year={year} onSyncComplete={() => refetch()} onYearChange={setYear} />
                             </div>
                         </div>
                     </motion.div>

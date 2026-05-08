@@ -31,6 +31,7 @@ import { FadeIn, StaggerContainer, StaggerItem, ScaleOnHover } from './ui/motion
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
 
 interface SyncState {
     lastCursor: string | null;
@@ -60,36 +61,36 @@ interface SyncManagerProps {
 }
 
 export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerProps) {
-    const [statuses, setStatuses] = useState<EndpointStatus[]>([]);
-    const [schedule, setSchedule] = useState<ScheduleConfig | null>(null);
-    const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState<string | null>(null);
     const [batchSyncing, setBatchSyncing] = useState(false);
     const [syncProgress, setSyncProgress] = useState<Record<string, { status: string; records: number }>>({});
-    const [basePath, setBasePath] = useState<string>('');
 
     const [activeVersionTab, setActiveVersionTab] = useState<'V1' | 'Legacy'>('V1');
     const [activeCategoryTab, setActiveCategoryTab] = useState<string>('Semua');
 
-    const fetchStatus = useCallback(async (verify = false) => {
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/sync/status?verify=${verify}`);
-            const data = await res.json();
-            setStatuses(data.endpoints || []);
-            setSchedule(data.schedule || null);
-            setBasePath(data.basePath || '');
-        } catch (error) {
-            console.error('Failed to fetch status:', error);
-            toast.error("Failed to fetch sync status");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const { data: statusData, isLoading, refetch, isRefetching } = useQuery({
+        queryKey: ['sync-status'],
+        queryFn: async () => {
+            const res = await fetch(`/api/sync/status?verify=false`);
+            if (!res.ok) throw new Error("Failed to fetch sync status");
+            return res.json();
+        },
+        refetchInterval: 10000 // Poll every 10 seconds
+    });
 
-    useEffect(() => {
-        fetchStatus(false);
-    }, [fetchStatus]);
+    const statuses = statusData?.endpoints || [];
+    const schedule = statusData?.schedule || null;
+    const basePath = statusData?.basePath || '';
+    const loading = isLoading || isRefetching;
+
+    const fetchStatus = useCallback(async (verify = false) => {
+        if (verify) {
+            const res = await fetch(`/api/sync/status?verify=true`);
+            if (res.ok) await refetch();
+        } else {
+            await refetch();
+        }
+    }, [refetch]);
 
     useEffect(() => {
         setSyncProgress({});
@@ -118,7 +119,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
 
                 const result = await res.json();
                 if (!result.success) throw new Error(result.error || 'Sync failed');
-                
+
                 isComplete = result.isComplete;
                 setSyncProgress((prev) => ({
                     ...prev,
@@ -208,17 +209,17 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
 
             if (!acc[version]) acc[version] = { 'Semua': [] };
             if (!acc[version][category]) acc[version][category] = [];
-            
+
             acc[version][category].push(status);
             acc[version]['Semua'].push(status);
-            
+
             return acc;
         }, {} as Record<string, Record<string, EndpointStatus[]>>);
     }, [statuses]);
 
     const categoriesForVersion = useMemo(() => {
         if (!groupedStatuses[activeVersionTab]) return ['Semua'];
-        return Object.keys(groupedStatuses[activeVersionTab]).sort((a,b) => a === 'Semua' ? -1 : b === 'Semua' ? 1 : a.localeCompare(b));
+        return Object.keys(groupedStatuses[activeVersionTab]).sort((a, b) => a === 'Semua' ? -1 : b === 'Semua' ? 1 : a.localeCompare(b));
     }, [groupedStatuses, activeVersionTab]);
 
     useEffect(() => {
@@ -295,7 +296,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                             {schedule?.enabled && <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span></span>}
                         </div>
                     </div>
-                    
+
                     <div className="space-y-5 relative z-10">
                         <div>
                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 ml-1">Frequency</p>
@@ -309,7 +310,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                 </SelectContent>
                             </Select>
                         </div>
-                        
+
                         <div>
                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 ml-1">Last Run</p>
                             <div suppressHydrationWarning className="font-mono text-sm bg-background/50 px-4 py-3 rounded-2xl border border-border/50 truncate font-medium text-foreground/80 shadow-inner">
@@ -329,9 +330,9 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-border/50 pb-8">
                     <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-2xl border border-border/50 w-max shadow-inner">
                         {(['V1', 'Legacy'] as const).map(v => (
-                            <Button 
-                                key={v} 
-                                variant="ghost" 
+                            <Button
+                                key={v}
+                                variant="ghost"
                                 className={cn("rounded-[0.85rem] px-8 h-12 text-sm font-bold transition-all", activeVersionTab === v ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}
                                 onClick={() => setActiveVersionTab(v)}
                             >
@@ -342,9 +343,9 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
 
                     <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-full border border-border/50 overflow-x-auto w-full md:w-auto scrollbar-none shadow-inner">
                         {categoriesForVersion.map(cat => (
-                            <Button 
-                                key={cat} 
-                                variant="ghost" 
+                            <Button
+                                key={cat}
+                                variant="ghost"
                                 className={cn("rounded-full px-5 h-10 text-xs font-semibold whitespace-nowrap transition-all", activeCategoryTab === cat ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
                                 onClick={() => setActiveCategoryTab(cat)}
                             >
@@ -358,10 +359,10 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                 <ScrollArea className="h-[550px] pr-4">
                     {loading && statuses.length === 0 ? (
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            {[1,2,3,4].map(i => <Skeleton key={i} className="h-32 w-full rounded-3xl" />)}
+                            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 w-full rounded-3xl" />)}
                         </div>
                     ) : displayedEndpoints.length === 0 ? (
-                         <div className="flex flex-col items-center justify-center h-[400px] text-center gap-4">
+                        <div className="flex flex-col items-center justify-center h-[400px] text-center gap-4">
                             <div className="h-24 w-24 bg-muted/30 rounded-[2rem] flex items-center justify-center">
                                 <Database className="h-10 w-10 text-muted-foreground opacity-50" />
                             </div>
@@ -383,7 +384,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                         )}>
                                             {/* Glowing accent border top */}
                                             <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/50 transition-all duration-500" />
-                                            
+
                                             <div className="flex-1 min-w-0 z-10">
                                                 <div className="flex flex-wrap items-center gap-3 mb-2">
                                                     <div className="h-8 w-8 bg-secondary/80 rounded-xl flex items-center justify-center border border-border/50 shadow-inner text-foreground/70">

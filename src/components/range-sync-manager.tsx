@@ -75,22 +75,44 @@ export function RangeSyncManager() {
             let firstRequestInLoop = isFirstBatch;
 
             while (!isComplete) {
-                const res = await fetch('/api/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        endpoint,
-                        year,
-                        batchSize: 100,
-                        maxPages: 50,
-                        forceOverwrite: firstRequestInLoop ? rangeSyncConfig.forceSync : false
-                    }),
-                });
+                let retryCount = 0;
+                let success = false;
+                let result: any = null;
+
+                while (!success && retryCount < 3) {
+                    try {
+                        const res = await fetch('/api/sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                endpoint,
+                                year,
+                                batchSize: 100,
+                                maxPages: 50,
+                                forceOverwrite: firstRequestInLoop ? rangeSyncConfig.forceSync : false
+                            }),
+                        });
+
+                        if (!res.ok) {
+                            const errorText = await res.text();
+                            throw new Error(`HTTP ${res.status}: ${errorText}`);
+                        }
+
+                        result = await res.json();
+                        if (!result.success) throw new Error(result.error || 'Sync failed');
+                        
+                        success = true;
+                    } catch (err: any) {
+                        retryCount++;
+                        console.warn(`Retry ${retryCount}/3 for ${endpoint} ${year} due to: ${err.message}`);
+                        if (retryCount >= 3) {
+                            throw new Error(`Failed after 3 retries. Last error: ${err.message}`);
+                        }
+                        await new Promise((r) => setTimeout(r, 2000)); // Wait 2s before retry
+                    }
+                }
 
                 firstRequestInLoop = false;
-
-                const result = await res.json();
-                if (!result.success) throw new Error(result.error || 'Sync failed');
 
                 totalNew += result.newRecords;
                 totalSkipped += result.duplicatesSkipped;
