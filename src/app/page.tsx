@@ -250,7 +250,7 @@ export default function Home() {
                                         </h1>
                                         <span className="text-2xl text-muted-foreground mb-3 font-medium bg-background/50 px-3 py-1 rounded-lg backdrop-blur-md">IDR</span>
                                     </div>
-                                    <p className="mt-6 text-muted-foreground font-medium text-sm">Aggregated value of {stats.totalItems.toLocaleString()} visible records from the year {year}.</p>
+                                    <p suppressHydrationWarning className="mt-6 text-muted-foreground font-medium text-sm">Aggregated value of {stats.totalItems.toLocaleString()} visible records from the year {year}.</p>
                                 </div>
                             </motion.div>
 
@@ -263,7 +263,7 @@ export default function Home() {
                                         </div>
                                     </div>
                                     <div className="mt-4">
-                                        <h2 className="text-5xl font-bold tracking-tight text-foreground/90">{stats.totalItems.toLocaleString()}</h2>
+                                        <h2 suppressHydrationWarning className="text-5xl font-bold tracking-tight text-foreground/90">{stats.totalItems.toLocaleString()}</h2>
                                         <p className="text-sm text-muted-foreground mt-2 font-medium">Data entries currently loaded</p>
                                     </div>
                                 </motion.div>

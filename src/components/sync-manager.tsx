@@ -193,7 +193,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
         }
         const yearState = status.years.find((y) => y.year === year);
         if (yearState) {
-            return <Badge variant="outline" className="gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 rounded-full font-mono"><CheckCircle className="h-3 w-3" /> Ready ({yearState.state.totalRecords.toLocaleString()})</Badge>;
+            return <Badge suppressHydrationWarning variant="outline" className="gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 rounded-full font-mono"><CheckCircle className="h-3 w-3" /> Ready ({yearState.state.totalRecords.toLocaleString()})</Badge>;
         }
         return <Badge variant="outline" className="text-muted-foreground/60 border-dashed rounded-full font-medium border-muted-foreground/30">Needs Sync</Badge>;
     };
@@ -312,7 +312,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                         
                         <div>
                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 ml-1">Last Run</p>
-                            <div className="font-mono text-sm bg-background/50 px-4 py-3 rounded-2xl border border-border/50 truncate font-medium text-foreground/80 shadow-inner">
+                            <div suppressHydrationWarning className="font-mono text-sm bg-background/50 px-4 py-3 rounded-2xl border border-border/50 truncate font-medium text-foreground/80 shadow-inner">
                                 {schedule?.lastRun ? formatDate(schedule.lastRun) : 'Never executed'}
                             </div>
                         </div>
@@ -400,7 +400,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                                     </div>
                                                     <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono text-muted-foreground/80 mt-1">
                                                         {yearState && (
-                                                            <span className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
+                                                            <span suppressHydrationWarning className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
                                                                 <Clock className="h-3 w-3" />
                                                                 {formatDate(yearState.state.lastSyncDate)}
                                                             </span>
@@ -408,7 +408,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                                     </div>
 
                                                     {progress?.records > 0 && (
-                                                        <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-primary/80 bg-primary/10 px-2 py-1 rounded-md inline-block w-max">
+                                                        <div suppressHydrationWarning className="mt-1 text-[10px] font-bold uppercase tracking-widest text-primary/80 bg-primary/10 px-2 py-1 rounded-md inline-block w-max">
                                                             Processed {progress.records.toLocaleString()} records...
                                                         </div>
                                                     )}
