@@ -22,12 +22,13 @@ import {
     Zap,
     PlayCircle,
     PauseCircle,
-    Server,
     Database,
-    FileJson
+    FileJson,
+    Calendar,
+    Settings2
 } from 'lucide-react';
-import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
-import { FadeIn, StaggerContainer, StaggerItem, ScaleOnHover } from './ui/motion-primitives';
+import { getSyncableEndpoints } from '@/lib/constants';
+import { FadeIn, StaggerContainer, StaggerItem } from './ui/motion-primitives';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -167,8 +168,8 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates),
             });
-            const data = await res.json();
-            setSchedule(data.schedule);
+            await res.json();
+            refetch();
             toast.success("Schedule updated");
         } catch (error) {
             toast.error("Failed to update schedule");
@@ -176,27 +177,27 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
     };
 
     const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return 'Never synced';
+        if (!dateStr) return '-';
         const date = new Date(dateStr);
         return date.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
-    const getStatusBadge = (endpoint: string, status: EndpointStatus) => {
+    const getStatusInfo = (endpoint: string, status: EndpointStatus) => {
         const progress = syncProgress[endpoint];
         if (progress?.status === 'syncing') {
-            return <Badge variant="secondary" className="gap-1 bg-blue-500/10 text-blue-500 animate-pulse border-blue-500/20 rounded-full font-medium"><Loader2 className="h-3 w-3 animate-spin" /> Syncing</Badge>;
+            return { color: 'bg-blue-500 text-white', icon: <Loader2 className="h-3 w-3 animate-spin" />, label: 'Syncing', pulse: true };
         }
         if (progress?.status === 'complete') {
-            return <Badge variant="secondary" className="gap-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-full font-medium"><CheckCircle className="h-3 w-3" /> Complete</Badge>;
+            return { color: 'bg-emerald-500 text-white', icon: <CheckCircle className="h-3 w-3" />, label: 'Complete', pulse: false };
         }
         if (progress?.status === 'error') {
-            return <Badge variant="destructive" className="gap-1 rounded-full"><AlertCircle className="h-3 w-3" /> Error</Badge>;
+            return { color: 'bg-red-500 text-white', icon: <AlertCircle className="h-3 w-3" />, label: 'Error', pulse: false };
         }
         const yearState = status.years.find((y) => y.year === year);
         if (yearState) {
-            return <Badge suppressHydrationWarning variant="outline" className="gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 rounded-full font-mono"><CheckCircle className="h-3 w-3" /> Ready ({yearState.state.totalRecords.toLocaleString()})</Badge>;
+            return { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', icon: <CheckCircle className="h-3 w-3" />, label: 'Ready', pulse: false };
         }
-        return <Badge variant="outline" className="text-muted-foreground/60 border-dashed rounded-full font-medium border-muted-foreground/30">Needs Sync</Badge>;
+        return { color: 'bg-muted text-muted-foreground', icon: <AlertCircle className="h-3 w-3" />, label: 'Unsynced', pulse: false };
     };
 
     const groupedStatuses = useMemo(() => {
@@ -235,196 +236,223 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
 
     return (
         <FadeIn className="space-y-6">
-            {/* Top Control Bar (Bento style) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Hero / Controls */}
-                <div className="lg:col-span-2 relative overflow-hidden rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-xl shadow-xl shadow-primary/5 p-6 sm:p-10 flex flex-col justify-between group hover:border-primary/20 transition-all">
-                    <div className="absolute -top-12 -right-12 p-8 opacity-[0.03] group-hover:opacity-10 transition-opacity pointer-events-none transform group-hover:scale-110 duration-700">
-                        <Server className="w-64 h-64 text-primary" />
+            {/* Header Control Panel */}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-5 sm:p-6 rounded-[2rem] bg-card/60 backdrop-blur-xl border border-border shadow-sm">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-primary/10 text-primary rounded-2xl shadow-inner">
+                        <Database className="w-6 h-6" />
                     </div>
-                    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2.5 rounded-2xl bg-primary/10 text-primary shadow-inner">
-                                    <Server className="w-6 h-6" />
-                                </div>
-                                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Sync Configuration</h3>
-                            </div>
-                            <p className="text-muted-foreground font-medium text-sm ml-1">Download and synchronize master data locally</p>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center p-1.5 bg-secondary/50 rounded-full border border-border/50 shadow-sm">
-                                <Select value={year} onValueChange={onYearChange}>
-                                    <SelectTrigger className="w-[110px] h-10 border-none bg-transparent shadow-none focus:ring-0 font-bold text-foreground">
-                                        <SelectValue placeholder="Year" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-2xl shadow-xl">
-                                        {Array.from({ length: 2027 - 2018 + 1 }, (_, i) => 2027 - i).map((y) => (
-                                            <SelectItem key={y} value={String(y)} className="rounded-xl font-medium focus:bg-primary/10 focus:text-primary cursor-pointer">{y}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Button variant="outline" size="icon" onClick={() => fetchStatus(true)} disabled={loading} className="h-14 w-14 rounded-full border-border/50 bg-background/50 shadow-sm hover:bg-secondary transition-all group/btn">
-                                <RefreshCw className={cn("h-5 w-5 text-muted-foreground group-hover/btn:text-primary transition-colors", loading && "animate-spin text-primary")} />
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="relative z-10 mt-auto">
-                        <Button size="lg" onClick={batchSync} disabled={batchSyncing || syncing !== null} className="w-full sm:w-auto h-14 px-8 rounded-full gap-3 shadow-xl shadow-primary/25 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground text-base font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]">
-                            {batchSyncing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
-                            {batchSyncing ? 'Batch Syncing in Progress...' : 'Sync All Visible Endpoints'}
-                        </Button>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight">Sync Configuration</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">Manage and synchronize master data</p>
                     </div>
                 </div>
 
-                {/* Schedule Widget */}
-                <div className="relative overflow-hidden rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-xl shadow-xl shadow-primary/5 p-6 sm:p-8 flex flex-col justify-between group hover:border-blue-500/20 transition-all">
-                    <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-10 transition-opacity pointer-events-none transform group-hover:-rotate-12 duration-700">
-                        <Clock className="w-48 h-48 text-blue-500" />
-                    </div>
-                    <div className="flex items-center justify-between mb-6 relative z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-500 shadow-inner">
-                                <Clock className="w-6 h-6" />
-                            </div>
-                            <h3 className="font-extrabold tracking-tight text-xl">Automation</h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {schedule?.enabled && <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span></span>}
-                        </div>
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                    {/* Automation Control */}
+                    <div className="flex items-center p-1.5 bg-background rounded-full border border-border shadow-sm mr-auto lg:mr-4">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => updateSchedule({ enabled: !schedule?.enabled })}
+                            className={cn(
+                                "h-9 rounded-full px-4 text-xs font-bold transition-all",
+                                schedule?.enabled ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                            )}
+                        >
+                            {schedule?.enabled ? (
+                                <><PauseCircle className="h-4 w-4 mr-2" /> Auto: ON</>
+                            ) : (
+                                <><PlayCircle className="h-4 w-4 mr-2" /> Auto: OFF</>
+                            )}
+                        </Button>
+                        <div className="w-px h-5 bg-border mx-1" />
+                        <Select value={schedule?.type || 'daily'} onValueChange={(value) => updateSchedule({ type: value as 'daily' | 'weekly' })}>
+                            <SelectTrigger className="h-9 border-none bg-transparent shadow-none focus:ring-0 text-xs font-semibold px-3">
+                                <Settings2 className="w-4 h-4 mr-2 text-muted-foreground" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl shadow-xl">
+                                <SelectItem value="daily" className="rounded-lg text-xs cursor-pointer">Daily</SelectItem>
+                                <SelectItem value="weekly" className="rounded-lg text-xs cursor-pointer">Weekly</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
-                    <div className="space-y-5 relative z-10">
-                        <div>
-                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 ml-1">Frequency</p>
-                            <Select value={schedule?.type || 'daily'} onValueChange={(value) => updateSchedule({ type: value as 'daily' | 'weekly' })}>
-                                <SelectTrigger className="w-full h-12 rounded-2xl border-border/50 bg-background/50 hover:bg-background shadow-sm text-sm font-semibold focus:ring-4 focus:ring-blue-500/10">
-                                    <SelectValue />
+                    {/* Year & Actions */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center p-1 bg-background rounded-full border border-border shadow-sm">
+                            <Calendar className="w-4 h-4 ml-3 text-muted-foreground" />
+                            <Select value={year} onValueChange={onYearChange}>
+                                <SelectTrigger className="w-[100px] h-10 border-none bg-transparent shadow-none focus:ring-0 font-bold text-foreground">
+                                    <SelectValue placeholder="Year" />
                                 </SelectTrigger>
-                                <SelectContent className="rounded-2xl shadow-xl">
-                                    <SelectItem value="daily" className="rounded-xl cursor-pointer">Daily Execution</SelectItem>
-                                    <SelectItem value="weekly" className="rounded-xl cursor-pointer">Weekly Execution</SelectItem>
+                                <SelectContent className="rounded-xl shadow-xl">
+                                    {Array.from({ length: 2027 - 2018 + 1 }, (_, i) => 2027 - i).map((y) => (
+                                        <SelectItem key={y} value={String(y)} className="rounded-lg font-medium cursor-pointer">{y}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
-
-                        <div>
-                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 ml-1">Last Run</p>
-                            <div suppressHydrationWarning className="font-mono text-sm bg-background/50 px-4 py-3 rounded-2xl border border-border/50 truncate font-medium text-foreground/80 shadow-inner">
-                                {schedule?.lastRun ? formatDate(schedule.lastRun) : 'Never executed'}
-                            </div>
-                        </div>
-
-                        <Button variant={schedule?.enabled ? 'secondary' : 'outline'} onClick={() => updateSchedule({ enabled: !schedule?.enabled })} className={cn("w-full h-12 rounded-full font-bold transition-all border-border/50", schedule?.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border-transparent shadow-sm" : "hover:bg-secondary")}>
-                            {schedule?.enabled ? <><PauseCircle className="h-4 w-4 mr-2" /> Pause Schedule</> : <><PlayCircle className="h-4 w-4 mr-2" /> Enable Schedule</>}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => fetchStatus(true)}
+                            disabled={loading}
+                            className="h-12 w-12 rounded-full border-border bg-background shadow-sm hover:bg-secondary transition-all group"
+                        >
+                            <RefreshCw className={cn("h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors", loading && "animate-spin text-primary")} />
+                        </Button>
+                        <Button
+                            onClick={batchSync}
+                            disabled={batchSyncing || syncing !== null}
+                            className="h-12 px-6 rounded-full gap-2 shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            {batchSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                            <span className="hidden sm:inline">{batchSyncing ? 'Syncing...' : 'Batch Sync'}</span>
                         </Button>
                     </div>
                 </div>
             </div>
 
-            {/* Interactive Grid Area */}
-            <div className="rounded-[2.5rem] border border-border/50 bg-card/30 backdrop-blur-xl shadow-xl overflow-hidden p-6 sm:p-10">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-border/50 pb-8">
-                    <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-2xl border border-border/50 w-max shadow-inner">
+            {/* List Container */}
+            <div className="flex flex-col border border-border rounded-[2rem] bg-card/40 backdrop-blur-xl shadow-xl overflow-hidden">
+                
+                {/* Tabs */}
+                <div className="p-4 sm:px-6 border-b border-border bg-background/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="flex p-1 bg-secondary/60 rounded-xl border border-border/50 shadow-inner w-full sm:w-auto">
                         {(['V1', 'Legacy'] as const).map(v => (
-                            <Button
+                            <button
                                 key={v}
-                                variant="ghost"
-                                className={cn("rounded-[0.85rem] px-8 h-12 text-sm font-bold transition-all", activeVersionTab === v ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}
                                 onClick={() => setActiveVersionTab(v)}
+                                className={cn(
+                                    "flex-1 sm:flex-none px-6 py-2 text-sm font-bold rounded-lg transition-all",
+                                    activeVersionTab === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                )}
                             >
                                 {v} API
-                            </Button>
+                            </button>
                         ))}
                     </div>
 
-                    <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-full border border-border/50 overflow-x-auto w-full md:w-auto scrollbar-none shadow-inner">
+                    <div className="flex p-1 bg-secondary/60 rounded-xl border border-border/50 overflow-x-auto w-full sm:w-auto scrollbar-none shadow-inner">
                         {categoriesForVersion.map(cat => (
-                            <Button
+                            <button
                                 key={cat}
-                                variant="ghost"
-                                className={cn("rounded-full px-5 h-10 text-xs font-semibold whitespace-nowrap transition-all", activeCategoryTab === cat ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
                                 onClick={() => setActiveCategoryTab(cat)}
+                                className={cn(
+                                    "flex items-center px-4 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all",
+                                    activeCategoryTab === cat ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                )}
                             >
                                 {cat}
-                                <Badge variant="secondary" className="ml-2 bg-secondary/80 text-[10px] h-5 px-1.5 font-bold">{groupedStatuses[activeVersionTab]?.[cat]?.length || 0}</Badge>
-                            </Button>
+                                <span className={cn(
+                                    "ml-2 px-1.5 py-0.5 rounded-md text-[10px]",
+                                    activeCategoryTab === cat ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                                )}>
+                                    {groupedStatuses[activeVersionTab]?.[cat]?.length || 0}
+                                </span>
+                            </button>
                         ))}
                     </div>
                 </div>
 
-                <ScrollArea className="h-[550px] pr-4">
+                {/* List Content */}
+                <ScrollArea className="h-[600px] w-full">
                     {loading && statuses.length === 0 ? (
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 w-full rounded-3xl" />)}
+                        <div className="p-6 space-y-4">
+                            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
                         </div>
                     ) : displayedEndpoints.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-[400px] text-center gap-4">
-                            <div className="h-24 w-24 bg-muted/30 rounded-[2rem] flex items-center justify-center">
-                                <Database className="h-10 w-10 text-muted-foreground opacity-50" />
-                            </div>
-                            <h3 className="text-xl font-bold text-foreground">No endpoints found</h3>
-                            <p className="text-muted-foreground">Try refreshing the status or selecting another category.</p>
+                            <Database className="h-12 w-12 text-muted-foreground opacity-30" />
+                            <h3 className="text-lg font-bold text-foreground">No endpoints found</h3>
+                            <p className="text-sm text-muted-foreground">Adjust your filters to see more endpoints.</p>
                         </div>
                     ) : (
-                        <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
+                        <StaggerContainer key={`${activeVersionTab}-${activeCategoryTab}`} className="flex flex-col p-4 sm:p-6 gap-3">
                             {displayedEndpoints.map((status) => {
                                 const yearState = status.years.find((y) => y.year === year);
                                 const progress = syncProgress[status.endpoint];
                                 const isSyncingThis = syncing === status.endpoint;
+                                const statusInfo = getStatusInfo(status.endpoint, status);
+                                
+                                // Determine records to display
+                                const displayRecords = isSyncingThis 
+                                    ? progress?.records || 0
+                                    : yearState?.state.totalRecords || 0;
 
                                 return (
                                     <StaggerItem key={status.endpoint}>
                                         <div className={cn(
-                                            "group relative flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-[2rem] border bg-background/50 hover:bg-card hover:shadow-xl transition-all duration-300 gap-5 overflow-hidden",
-                                            isSyncingThis ? "border-primary/50 shadow-lg shadow-primary/10 ring-1 ring-primary/20 bg-primary/5" : "border-border/50 shadow-sm hover:border-primary/20"
+                                            "group relative flex flex-col md:flex-row md:items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all duration-300 gap-5 overflow-hidden",
+                                            isSyncingThis ? "bg-primary/5 border-primary/40 shadow-md ring-1 ring-primary/20" : "bg-background/80 border-border hover:border-primary/30 hover:shadow-md"
                                         )}>
-                                            {/* Glowing accent border top */}
-                                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/50 transition-all duration-500" />
-
-                                            <div className="flex-1 min-w-0 z-10">
-                                                <div className="flex flex-wrap items-center gap-3 mb-2">
-                                                    <div className="h-8 w-8 bg-secondary/80 rounded-xl flex items-center justify-center border border-border/50 shadow-inner text-foreground/70">
-                                                        <FileJson className="h-4 w-4" />
-                                                    </div>
-                                                    <span className="font-extrabold text-sm truncate text-foreground/90">
-                                                        {status.label}
-                                                    </span>
+                                            
+                                            {/* Left: Info */}
+                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                <div className={cn(
+                                                    "h-12 w-12 shrink-0 rounded-xl flex items-center justify-center shadow-inner transition-colors",
+                                                    isSyncingThis ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground group-hover:text-foreground"
+                                                )}>
+                                                    <FileJson className="h-6 w-6" />
                                                 </div>
-
-                                                <div className="flex flex-col gap-2 mt-3 pl-[44px]">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        {getStatusBadge(status.endpoint, status)}
-                                                    </div>
-                                                    <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono text-muted-foreground/80 mt-1">
-                                                        {yearState && (
-                                                            <span suppressHydrationWarning className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
-                                                                <Clock className="h-3 w-3" />
-                                                                {formatDate(yearState.state.lastSyncDate)}
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    {progress?.records > 0 && (
-                                                        <div suppressHydrationWarning className="mt-1 text-[10px] font-bold uppercase tracking-widest text-primary/80 bg-primary/10 px-2 py-1 rounded-md inline-block w-max">
-                                                            Processed {progress.records.toLocaleString()} records...
-                                                        </div>
-                                                    )}
+                                                <div className="flex flex-col min-w-0">
+                                                    <h4 className="font-bold text-sm sm:text-base text-foreground truncate" title={status.label}>
+                                                        {status.label}
+                                                    </h4>
+                                                    <p className="text-xs font-mono text-muted-foreground truncate mt-0.5">
+                                                        {status.endpoint}
+                                                    </p>
                                                 </div>
                                             </div>
 
-                                            <div className="z-10 flex shrink-0 sm:self-center mt-2 sm:mt-0">
+                                            {/* Middle: Status & Progress */}
+                                            <div className="flex flex-row items-center gap-4 md:gap-6 flex-1 md:justify-end">
+                                                
+                                                {/* Status Badge */}
+                                                <div className={cn(
+                                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide uppercase shrink-0 shadow-sm",
+                                                    statusInfo.color,
+                                                    statusInfo.pulse && "animate-pulse"
+                                                )}>
+                                                    {statusInfo.icon}
+                                                    {statusInfo.label}
+                                                </div>
+
+                                                {/* Stats */}
+                                                <div className="flex flex-col items-end shrink-0 hidden sm:flex">
+                                                    <span className="text-sm font-extrabold text-foreground font-mono">
+                                                        {displayRecords.toLocaleString()} <span className="text-[10px] text-muted-foreground font-sans font-medium uppercase">Records</span>
+                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                                        <Clock className="w-3 h-3" />
+                                                        {isSyncingThis ? 'Sync in progress...' : formatDate(yearState?.state.lastSyncDate || null)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Mobile Stats (Visible only on small screens) */}
+                                            <div className="flex items-center justify-between sm:hidden border-t border-border pt-3 mt-1">
+                                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {isSyncingThis ? 'Syncing...' : formatDate(yearState?.state.lastSyncDate || null)}
+                                                </span>
+                                                <span className="text-xs font-extrabold text-foreground font-mono">
+                                                    {displayRecords.toLocaleString()} recs
+                                                </span>
+                                            </div>
+
+                                            {/* Right: Action Button */}
+                                            <div className="shrink-0 absolute right-4 top-4 md:relative md:right-0 md:top-0">
                                                 <Button
                                                     variant={isSyncingThis ? "secondary" : "outline"}
                                                     size="icon"
                                                     onClick={() => syncEndpoint(status.endpoint)}
                                                     disabled={syncing !== null || batchSyncing}
                                                     className={cn(
-                                                        "h-14 w-14 rounded-full border-border/50 bg-background hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all shadow-sm group-hover:shadow-md",
-                                                        isSyncingThis && "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:text-primary"
+                                                        "h-10 w-10 md:h-12 md:w-12 rounded-full border-border bg-background hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all shadow-sm",
+                                                        isSyncingThis && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
                                                     )}
                                                 >
                                                     {isSyncingThis ? (
@@ -442,11 +470,9 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                     )}
                 </ScrollArea>
 
-                <div className="mt-6 pt-6 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-muted-foreground/70">
-                    <div className="flex items-center gap-2.5 bg-background/50 px-4 py-2 rounded-xl border border-border/50 shadow-inner">
-                        <FolderOpen className="h-4 w-4 text-primary/60" />
-                        <span>Storage Root: <strong className="text-foreground/80 ml-1">{basePath || 'Pending...'}</strong></span>
-                    </div>
+                <div className="px-6 py-4 bg-secondary/30 border-t border-border flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                    <FolderOpen className="h-4 w-4" />
+                    Storage: <span className="text-foreground/80 truncate">{basePath || 'Pending...'}</span>
                 </div>
             </div>
         </FadeIn>
