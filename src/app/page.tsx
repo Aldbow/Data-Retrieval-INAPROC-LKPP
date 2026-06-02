@@ -44,25 +44,32 @@ export default function Home() {
     const [isExporting, setIsExporting] = useState(false);
     const parentRef = useRef<HTMLDivElement>(null);
     const [apiStatus, setApiStatus] = useState<'connected' | 'disconnected'>('connected');
+    const [dataSource, setDataSource] = useState<'live' | 'local'>('local');
+    const [apiError, setApiError] = useState<{message: string, local_not_found?: boolean} | null>(null);
 
     const requiresId = !!ENDPOINTS.find(ep => ep.value === selectedEndpoint)?.requiresId;
 
     const fetchPage = async ({ pageParam = null }: any) => {
+        setApiError(null);
         const query = new URLSearchParams({
             year,
-            limit: '50',
+            limit: dataSource === 'local' ? '150' : '50',
             endpoint: selectedEndpoint,
         });
         if (search) query.set('search', search);
         if (pageParam) query.set('cursor', pageParam);
 
-        const res = await fetch(`/api/inaproc?${query.toString()}`);
+        const route = dataSource === 'local' ? '/api/local' : '/api/inaproc';
+        const res = await fetch(`${route}?${query.toString()}`);
+        const data = await res.json();
+
         if (!res.ok) {
             setApiStatus('disconnected');
-            throw new Error("API Response not ok");
+            setApiError({ message: data.error || "API Response not ok", local_not_found: data.local_not_found });
+            throw new Error(data.error || "API Response not ok");
         }
         setApiStatus('connected');
-        return res.json();
+        return data;
     };
 
     const {
@@ -71,9 +78,11 @@ export default function Home() {
         hasNextPage,
         isLoading,
         isFetchingNextPage,
-        refetch
+        refetch,
+        isError,
+        error
     } = useInfiniteQuery({
-        queryKey: ['inaproc', selectedEndpoint, year, search],
+        queryKey: ['inaproc', selectedEndpoint, year, search, dataSource],
         queryFn: fetchPage,
         getNextPageParam: (lastPage) => {
             if (lastPage.has_more === false) return undefined;
@@ -254,6 +263,21 @@ export default function Home() {
                             </div>
 
                             <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full xl:w-auto">
+                                <div className="flex p-1 bg-secondary/50 rounded-full border border-black/10 dark:border-white/10 shadow-sm w-full sm:w-auto">
+                                    <button
+                                        onClick={() => { setDataSource('local'); setApiError(null); }}
+                                        className={cn("flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-full transition-all whitespace-nowrap", dataSource === 'local' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                                    >
+                                        Local Data
+                                    </button>
+                                    <button
+                                        onClick={() => { setDataSource('live'); setApiError(null); }}
+                                        className={cn("flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-full transition-all whitespace-nowrap", dataSource === 'live' ? "bg-background text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                                    >
+                                        Live API
+                                    </button>
+                                </div>
+
                                 <Select value={year} onValueChange={setYear}>
                                     <SelectTrigger className="w-full sm:w-[100px] h-12 rounded-full border border-black/10 dark:border-white/10 bg-background/50 hover:bg-background shadow-sm text-sm font-semibold focus:ring-4 focus:ring-primary/10 transition-all">
                                         <SelectValue placeholder="Year" />
@@ -338,7 +362,22 @@ export default function Home() {
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {isLoading ? (
+                                                    {isError && apiError?.local_not_found ? (
+                                                        <TableRow className="border-none hover:bg-transparent">
+                                                            <TableCell colSpan={columns.length + 2 || 6} className="h-[500px] text-center">
+                                                                <div className="flex flex-col items-center justify-center gap-4 max-w-md mx-auto">
+                                                                    <div className="h-24 w-24 bg-amber-500/10 rounded-[2rem] flex items-center justify-center mb-2 shadow-inner">
+                                                                        <Database className="h-10 w-10 text-amber-500" />
+                                                                    </div>
+                                                                    <h3 className="text-2xl font-bold text-foreground">Data Lokal Belum Tersedia</h3>
+                                                                    <p className="text-muted-foreground leading-relaxed">{apiError.message}</p>
+                                                                    <Button onClick={() => setActiveTab('sync')} className="mt-4 rounded-full px-8 h-12 shadow-lg shadow-primary/20 font-bold bg-primary hover:bg-primary/90 text-primary-foreground">
+                                                                        Buka Sync Manager
+                                                                    </Button>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ) : isLoading ? (
                                                         Array.from({ length: 10 }).map((_, index) => (
                                                             <TableRow key={index} className="border-b border-border/20">
                                                                 <TableCell className="py-5"><Skeleton className="h-4 w-8 mx-auto" /></TableCell>
