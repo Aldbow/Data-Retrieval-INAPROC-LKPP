@@ -53,7 +53,7 @@ export default function Home() {
         setApiError(null);
         const query = new URLSearchParams({
             year,
-            limit: dataSource === 'local' ? '150' : '50',
+            limit: dataSource === 'local' ? '999999' : '50',
             endpoint: selectedEndpoint,
         });
         if (search) query.set('search', search);
