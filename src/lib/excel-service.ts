@@ -1,13 +1,7 @@
-/**
- * Excel Service
- * Handles Excel file operations with deduplication support
- */
-
-import * as fs from 'fs';
-import * as path from 'path';
+import { supabase } from './supabase';
+import { uploadExcelToDrive } from './gdrive';
+import { getUniqueKeyFields } from './drive-config';
 import * as XLSX from 'xlsx';
-import { getFilePath, getUniqueKeyFields } from './drive-config';
-import { ensureEndpointFolder } from './sync-state';
 
 export interface ExcelOperationResult {
     success: boolean;
@@ -18,17 +12,12 @@ export interface ExcelOperationResult {
     error?: string;
 }
 
-/**
- * Generate a unique key for a record based on endpoint-specific fields
- */
 function generateRecordKey(record: any, keyFields: string[]): string {
     return keyFields
         .map(field => {
-            // Support "OR" logic for fields (e.g. "kode_rup||kd_rup")
             if (field.includes('||')) {
                 const options = field.split('||');
                 for (const opt of options) {
-                    // Check strict non-null/undefined. Empty string might be valid but usually ID is not empty.
                     if (record[opt] !== undefined && record[opt] !== null && String(record[opt]).trim() !== '') {
                         return String(record[opt]);
                     }
@@ -41,207 +30,7 @@ function generateRecordKey(record: any, keyFields: string[]): string {
 }
 
 /**
- * Load existing records from Excel file
- */
-export async function loadExistingRecords(
-    filePath: string
-): Promise<{ records: any[]; keys: Set<string>; keyFields: string[] }> {
-    if (!fs.existsSync(filePath)) {
-        return { records: [], keys: new Set(), keyFields: [] };
-    }
-
-    try {
-        // Use buffer approach for better Windows compatibility
-        const buffer = fs.readFileSync(filePath);
-        const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const records = XLSX.utils.sheet_to_json(sheet);
-
-        // Extract endpoint from file path to get key fields
-        const fileName = path.basename(filePath, '.xlsx');
-        const endpointName = fileName.split('_')[0];
-
-        // Try to find key fields from the metadata sheet or use default
-        let keyFields: string[] = ['kode_rup']; // Default
-        if (workbook.SheetNames.includes('_metadata')) {
-            const metaSheet = workbook.Sheets['_metadata'];
-            const metaData = XLSX.utils.sheet_to_json(metaSheet);
-            if (metaData.length > 0 && (metaData[0] as any).keyFields) {
-                keyFields = JSON.parse((metaData[0] as any).keyFields);
-            }
-        }
-
-        // Build set of existing keys for fast deduplication
-        const keys = new Set<string>();
-        records.forEach(record => {
-            const key = generateRecordKey(record, keyFields);
-            keys.add(key);
-        });
-
-        return { records, keys, keyFields };
-    } catch (error) {
-        console.error('Error loading existing records:', error);
-        return { records: [], keys: new Set(), keyFields: [] };
-    }
-}
-
-/**
- * Append new records to Excel file with deduplication
- */
-export async function appendToExcel(
-    endpoint: string,
-    year: string,
-    newData: any[]
-): Promise<ExcelOperationResult> {
-    const filePath = getFilePath(endpoint, year);
-    const keyFields = getUniqueKeyFields(endpoint);
-
-    try {
-        // Ensure folder exists
-        await ensureEndpointFolder(endpoint);
-
-        // Load existing data
-        const { records: existingRecords, keys: existingKeys } = await loadExistingRecords(filePath);
-
-        // Filter out duplicates
-        let duplicatesSkipped = 0;
-        const uniqueNewRecords: any[] = [];
-
-        console.log(`Deduplication using keys: [${keyFields.join(', ')}]`);
-        console.log(`Existing records: ${existingRecords.length}, New data batch: ${newData.length}`);
-
-        for (let i = 0; i < newData.length; i++) {
-            const record = newData[i];
-            let key = generateRecordKey(record, keyFields);
-
-            // If key is empty or just pipe separators, use a fallback with all fields hash
-            if (!key || key === '' || key.split('|').every(k => k === '')) {
-                // Create a hash from all field values as fallback
-                key = `__row_${JSON.stringify(record)}`;
-            }
-
-            if (!existingKeys.has(key)) {
-                uniqueNewRecords.push(record);
-                existingKeys.add(key);
-            } else {
-                duplicatesSkipped++;
-            }
-        }
-
-        console.log(`New unique records: ${uniqueNewRecords.length}, Duplicates skipped: ${duplicatesSkipped}`);
-
-        // Combine existing and new records
-        const allRecords = [...existingRecords, ...uniqueNewRecords];
-
-        // Create workbook
-        const workbook = XLSX.utils.book_new();
-
-        // Add data sheet
-        const dataSheet = XLSX.utils.json_to_sheet(allRecords);
-        XLSX.utils.book_append_sheet(workbook, dataSheet, `Data ${year}`);
-
-        // Add metadata sheet for deduplication info
-        const metaData = [{
-            endpoint,
-            year,
-            keyFields: JSON.stringify(keyFields),
-            lastUpdated: new Date().toISOString(),
-            totalRecords: allRecords.length,
-        }];
-        const metaSheet = XLSX.utils.json_to_sheet(metaData);
-        XLSX.utils.book_append_sheet(workbook, metaSheet, '_metadata');
-
-        // Write file using buffer approach for better Windows compatibility
-        console.log('Writing Excel file to:', filePath);
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-        fs.writeFileSync(filePath, buffer);
-        console.log('Excel file written successfully');
-
-        return {
-            success: true,
-            newRecords: uniqueNewRecords.length,
-            duplicatesSkipped,
-            totalRecords: allRecords.length,
-            filePath,
-        };
-    } catch (error: any) {
-        console.error('Error appending to Excel:', error);
-        return {
-            success: false,
-            newRecords: 0,
-            duplicatesSkipped: 0,
-            totalRecords: 0,
-            filePath,
-            error: error.message,
-        };
-    }
-}
-
-/**
- * Overwrite Excel file with new data (Safe Full Sync)
- * Used for Legacy endpoints to ensure no duplicates by replacing the entire file
- */
-export async function overwriteExcel(
-    endpoint: string,
-    year: string,
-    allData: any[]
-): Promise<ExcelOperationResult> {
-    const filePath = getFilePath(endpoint, year);
-    const keyFields = getUniqueKeyFields(endpoint);
-
-    try {
-        // Ensure folder exists
-        await ensureEndpointFolder(endpoint);
-
-        console.log(`Overwrite Strategy: Writing ${allData.length} records to ${filePath}`);
-
-        // Create new workbook
-        const workbook = XLSX.utils.book_new();
-
-        // Add data sheet
-        const dataSheet = XLSX.utils.json_to_sheet(allData);
-        XLSX.utils.book_append_sheet(workbook, dataSheet, `Data ${year}`);
-
-        // Add metadata sheet
-        const metaData = [{
-            endpoint,
-            year,
-            keyFields: JSON.stringify(keyFields),
-            lastUpdated: new Date().toISOString(),
-            totalRecords: allData.length,
-            syncType: 'overwrite'
-        }];
-        const metaSheet = XLSX.utils.json_to_sheet(metaData);
-        XLSX.utils.book_append_sheet(workbook, metaSheet, '_metadata');
-
-        // Write file (overwriting existing)
-        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-        fs.writeFileSync(filePath, buffer);
-        console.log('Excel file overwritten successfully');
-
-        return {
-            success: true,
-            newRecords: allData.length, // In overwrite mode, all records are "freshly written"
-            duplicatesSkipped: 0,
-            totalRecords: allData.length,
-            filePath,
-        };
-    } catch (error: any) {
-        console.error('Error overwriting Excel:', error);
-        return {
-            success: false,
-            newRecords: 0,
-            duplicatesSkipped: 0,
-            totalRecords: 0,
-            filePath,
-            error: error.message,
-        };
-    }
-}
-
-/**
- * Get file info for an endpoint/year
+ * Get accurate record count from Supabase
  */
 export async function getFileInfo(
     endpoint: string,
@@ -253,62 +42,170 @@ export async function getFileInfo(
     size: number;
     recordCount: number;
 }> {
-    const filePath = getFilePath(endpoint, year);
+    const { count, error } = await supabase
+        .from('inaproc_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('endpoint', endpoint)
+        .eq('year', year);
 
-    if (!fs.existsSync(filePath)) {
-        return {
-            exists: false,
-            path: filePath,
-            size: 0,
-            recordCount: 0,
-        };
-    }
-
-    try {
-        const stats = fs.statSync(filePath);
-        let recordCount = 0;
-        
-        // Only load and parse the full Excel file if fastMode is false
-        // Parsing full excel files for status checks causes severe performance issues
-        if (!fastMode) {
-            const { records } = await loadExistingRecords(filePath);
-            recordCount = records.length;
-        }
-
-        return {
-            exists: true,
-            path: filePath,
-            size: stats.size,
-            recordCount,
-        };
-    } catch (error) {
-        return {
-            exists: false,
-            path: filePath,
-            size: 0,
-            recordCount: 0,
-        };
-    }
+    return {
+        exists: count !== null && count > 0,
+        path: `Supabase/GDrive`,
+        size: 0,
+        recordCount: count || 0,
+    };
 }
 
 /**
- * Delete data file for an endpoint/year (for testing or reset)
+ * Delete records from Supabase
  */
 export async function deleteDataFile(
     endpoint: string,
     year: string
 ): Promise<boolean> {
-    const filePath = getFilePath(endpoint, year);
+    const { error } = await supabase
+        .from('inaproc_data')
+        .delete()
+        .eq('endpoint', endpoint)
+        .eq('year', year);
+    return !error;
+}
 
-    if (fs.existsSync(filePath)) {
-        try {
-            fs.unlinkSync(filePath);
-            return true;
-        } catch (error) {
-            console.error('Error deleting file:', error);
-            return false;
-        }
+/**
+ * Bulk Upsert records to Supabase
+ */
+export async function appendToExcel(
+    endpoint: string,
+    year: string,
+    newData: any[]
+): Promise<ExcelOperationResult> {
+    const keyFields = getUniqueKeyFields(endpoint);
+
+    try {
+        console.log(`Menyiapkan ${newData.length} data untuk di-upsert ke Supabase`);
+        
+        const upsertPayload = newData.map(record => {
+            let key = generateRecordKey(record, keyFields);
+            if (!key || key === '' || key.split('|').every(k => k === '')) {
+                key = `__row_${JSON.stringify(record)}`;
+            }
+            return {
+                endpoint,
+                year,
+                record_id: key,
+                data: record
+            };
+        });
+
+        // Supabase bulk upsert
+        const { error } = await supabase
+            .from('inaproc_data')
+            .upsert(upsertPayload, { onConflict: 'endpoint, year, record_id' });
+
+        if (error) throw error;
+
+        // Get total records
+        const { count } = await supabase
+            .from('inaproc_data')
+            .select('*', { count: 'exact', head: true })
+            .eq('endpoint', endpoint)
+            .eq('year', year);
+
+        return {
+            success: true,
+            newRecords: newData.length, // Upsert might overwrite, we approximate for UI
+            duplicatesSkipped: 0,
+            totalRecords: count || 0,
+            filePath: 'Supabase Database',
+        };
+    } catch (error: any) {
+        console.error('Error upserting to Supabase:', error);
+        return {
+            success: false,
+            newRecords: 0,
+            duplicatesSkipped: 0,
+            totalRecords: 0,
+            filePath: '',
+            error: error.message,
+        };
     }
+}
 
-    return true;
+/**
+ * Overwrite is the same as Upsert in Supabase unless we want to delete first.
+ * For legacy endpoints, we'll delete the existing year data and insert fresh.
+ */
+export async function overwriteExcel(
+    endpoint: string,
+    year: string,
+    allData: any[]
+): Promise<ExcelOperationResult> {
+    try {
+        await deleteDataFile(endpoint, year);
+        return await appendToExcel(endpoint, year, allData);
+    } catch (error: any) {
+        return {
+            success: false,
+            newRecords: 0,
+            duplicatesSkipped: 0,
+            totalRecords: 0,
+            filePath: '',
+            error: error.message,
+        };
+    }
+}
+
+/**
+ * Ekspor data dari Supabase ke file Excel lalu Upload ke GDrive
+ */
+export async function exportToGDrive(endpoint: string, year: string) {
+    try {
+        console.log(`Mengekspor data ke Excel untuk GDrive: ${endpoint} ${year}`);
+        
+        // Paginasi query ke Supabase jika datanya besar
+        let allRecords: any[] = [];
+        let limit = 5000;
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+            const { data, error } = await supabase
+                .from('inaproc_data')
+                .select('data')
+                .eq('endpoint', endpoint)
+                .eq('year', year)
+                .range(offset, offset + limit - 1);
+                
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                allRecords.push(...data.map(d => d.data));
+                offset += limit;
+            } else {
+                hasMore = false;
+            }
+        }
+        
+        if (allRecords.length === 0) {
+            return { success: true, message: 'No records to export' };
+        }
+        
+        const workbook = XLSX.utils.book_new();
+        const dataSheet = XLSX.utils.json_to_sheet(allRecords);
+        XLSX.utils.book_append_sheet(workbook, dataSheet, `Data ${year}`);
+        
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        // Format nama file: V1_E_Purchasing_2026.xlsx
+        const cleanName = endpoint.split('/').filter(Boolean).join('_');
+        const fileName = `${cleanName}_${year}.xlsx`;
+        
+        console.log(`Mengunggah ke GDrive: ${fileName} (${buffer.length} bytes)`);
+        const result = await uploadExcelToDrive(fileName, buffer);
+        
+        return result;
+    } catch (error: any) {
+        console.error('Export to GDrive gagal:', error);
+        return { success: false, error: error.message };
+    }
 }

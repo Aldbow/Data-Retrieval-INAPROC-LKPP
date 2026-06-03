@@ -201,7 +201,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
     };
 
     const groupedStatuses = useMemo(() => {
-        return statuses.reduce((acc, status) => {
+        return statuses.reduce((acc: any, status: any) => {
             const version = status.endpoint.startsWith('/legacy') ? 'Legacy' : 'V1';
             let category = 'Lainnya';
             if (status.endpoint.includes('ekatalog')) category = 'E-Katalog';
@@ -371,8 +371,8 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                         </div>
                     ) : (
                         <StaggerContainer key={`${activeVersionTab}-${activeCategoryTab}`} className="flex flex-col p-4 sm:p-6 gap-3">
-                            {displayedEndpoints.map((status) => {
-                                const yearState = status.years.find((y) => y.year === year);
+                            {displayedEndpoints.map((status: any) => {
+                                const yearState = status.years.find((y: any) => y.year === year);
                                 const progress = syncProgress[status.endpoint];
                                 const isSyncingThis = syncing === status.endpoint;
                                 const statusInfo = getStatusInfo(status.endpoint, status);

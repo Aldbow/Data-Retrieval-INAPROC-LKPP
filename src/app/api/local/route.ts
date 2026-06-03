@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { loadExistingRecords, getFileInfo } from '@/lib/excel-service';
-import { getFilePath } from '@/lib/drive-config';
+import { getFileInfo } from '@/lib/excel-service';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const endpoint = searchParams.get('endpoint');
     const year = searchParams.get('year');
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
-    const cursor = parseInt(searchParams.get('cursor') || '0', 10); // using array index as cursor
+    const limit = parseInt(searchParams.get('limit') || '500', 10);
+    const cursor = parseInt(searchParams.get('cursor') || '0', 10);
     const search = searchParams.get('search')?.toLowerCase();
 
     if (!endpoint || !year) {
@@ -19,38 +19,61 @@ export async function GET(request: Request) {
 
         if (!fileInfo.exists) {
             return NextResponse.json({
-                error: 'Data lokal belum tersedia. Silakan lakukan Sinkronisasi di tab Sync Manager terlebih dahulu.',
+                error: 'Data belum tersinkronisasi ke Supabase. Silakan gunakan Sync Manager.',
                 local_not_found: true
             }, { status: 404 });
         }
 
-        const filePath = getFilePath(endpoint, year);
-        const { records } = await loadExistingRecords(filePath);
+        let total = 0;
 
-        let filteredRecords = records;
-
-        // Apply search filter if provided
         if (search) {
-            filteredRecords = records.filter(record => {
-                // Check if any property value matches the search string
+            // Pencarian global dalam JSONB dilakukan di memory
+            const { data, error } = await supabase
+                .from('inaproc_data')
+                .select('data')
+                .eq('endpoint', endpoint)
+                .eq('year', year);
+                
+            if (error) throw error;
+            
+            const rawRecords = data.map(d => d.data);
+            const filtered = rawRecords.filter(record => {
                 for (const key in record) {
-                    const val = record[key];
-                    if (val !== null && val !== undefined) {
-                        if (String(val).toLowerCase().includes(search)) {
-                            return true;
-                        }
+                    if (record[key] !== null && record[key] !== undefined) {
+                        if (String(record[key]).toLowerCase().includes(search)) return true;
                     }
                 }
                 return false;
             });
+            
+            total = filtered.length;
+            const pageData = filtered.slice(cursor, cursor + limit);
+            const nextCursor = cursor + limit;
+            const hasMore = nextCursor < total;
+            
+            return NextResponse.json({
+                data: pageData,
+                meta: { total },
+                has_more: hasMore,
+                cursor: hasMore ? String(nextCursor) : null
+            });
         }
-
-        // Apply pagination
-        const total = filteredRecords.length;
-        const pageData = filteredRecords.slice(cursor, cursor + limit);
+        
+        // Tanpa pencarian, paginasi langsung dari Supabase
+        const { data, count, error } = await supabase
+            .from('inaproc_data')
+            .select('data', { count: 'exact' })
+            .eq('endpoint', endpoint)
+            .eq('year', year)
+            .range(cursor, cursor + limit - 1);
+            
+        if (error) throw error;
+        
+        const pageData = data.map(d => d.data);
+        total = count || 0;
         const nextCursor = cursor + limit;
         const hasMore = nextCursor < total;
-
+        
         return NextResponse.json({
             data: pageData,
             meta: { total },

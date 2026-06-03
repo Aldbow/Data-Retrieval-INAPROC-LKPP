@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSyncState, updateSyncState, ensureEndpointFolder } from '@/lib/sync-state';
-import { appendToExcel, overwriteExcel, getFileInfo, deleteDataFile } from '@/lib/excel-service';
+import { appendToExcel, overwriteExcel, getFileInfo, deleteDataFile, exportToGDrive } from '@/lib/excel-service';
 import { getFilePath } from '@/lib/drive-config';
 
 export const dynamic = 'force-dynamic';
@@ -279,7 +279,7 @@ export async function POST(request: Request) {
 
             await updateSyncState(endpoint, year, newState);
 
-            // Final verification logic
+            // Final verification and GDrive Export
             if (isComplete) {
                 const finalFileCheck = await getFileInfo(endpoint, year, false);
                 if (finalFileCheck.recordCount === newState.totalRecords) {
@@ -287,6 +287,12 @@ export async function POST(request: Request) {
                 } else {
                     finalVerification = 'mismatch';
                 }
+
+                // TRIGGER EXPORT TO GOOGLE DRIVE (Async background or wait)
+                console.log(`Sync complete for ${endpoint}. Triggering GDrive Export...`);
+                // We await it so we know it finished, but in Vercel this might timeout if large.
+                // However, since it's only called on the very last page, it should be fine.
+                await exportToGDrive(endpoint, year);
             }
         } else if (isComplete && totalNewRecords === 0) {
             // Handle case where we marked generic complete but had no data to write (e.g. empty final page or legacy empty)

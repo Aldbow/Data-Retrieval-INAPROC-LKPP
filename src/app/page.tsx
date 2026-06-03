@@ -53,7 +53,7 @@ export default function Home() {
         setApiError(null);
         const query = new URLSearchParams({
             year,
-            limit: dataSource === 'local' ? '999999' : '50',
+            limit: dataSource === 'local' ? '1000' : '50',
             endpoint: selectedEndpoint,
         });
         if (search) query.set('search', search);
@@ -268,7 +268,7 @@ export default function Home() {
                                         onClick={() => { setDataSource('local'); setApiError(null); }}
                                         className={cn("flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-full transition-all whitespace-nowrap", dataSource === 'local' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
                                     >
-                                        Local Data
+                                        Database
                                     </button>
                                     <button
                                         onClick={() => { setDataSource('live'); setApiError(null); }}

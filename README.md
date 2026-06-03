@@ -13,43 +13,41 @@ Aplikasi ini didesain dengan antarmuka pengguna (UI) yang kaya menggunakan kompo
 
 ## 🚀 Fitur Utama
 
-- **Data Browser Berkecepatan Tinggi**: Menampilkan ribuan data pengadaan secara mulus berkat implementasi `@tanstack/react-virtual` dan `@tanstack/react-query`.
+- **Data Browser Berkecepatan Tinggi**: Menampilkan ribuan data pengadaan secara mulus berkat implementasi `@tanstack/react-virtual` dan database Serverless PostgreSQL.
 - **Sync Manager**: Fitur sinkronisasi data dari berbagai *endpoint* LKPP/INAPROC. Terdapat sinkronisasi tunggal (per tahun) dan rentang (*Range Sync*) untuk multi-tahun secara massal.
-- **Sistem Deduplikasi Data**: Mencegah adanya duplikasi rekaman data saat sinkronisasi menggunakan metode *unique key matching*.
-- **Penyimpanan Berbasis Excel**: Data yang disinkronkan akan disimpan ke dalam format file `.xlsx` menggunakan *library* `xlsx`. File metadata juga dibuat secara otomatis untuk melacak riwayat sinkronisasi.
-- **Ekspor Data Mudah**: Pengguna dapat dengan mudah mengekspor data hasil pencarian dan filter ke format Spreadsheet/CSV dengan satu klik.
-- **Dashboard Statistik Real-Time**: Melihat total nilai Pagu, jumlah total rekaman data, dan status API secara *real-time*.
+- **Sistem Deduplikasi Data**: Mencegah adanya duplikasi rekaman data saat sinkronisasi otomatis menggunakan metode UPSERT di Supabase.
+- **Ekspor Otomatis Google Drive**: Setiap kali sinkronisasi selesai, sistem akan secara otomatis meracik file Excel `.xlsx` dan mengirimkannya ke folder Google Drive pusat.
+- **Vercel Cron Job**: Pembaruan dan penarikan data secara mandiri berjalan setiap hari pada jam 02:00 WIB tanpa campur tangan pengguna.
 
 ---
 
-## 🏗️ Arsitektur Proyek
+## 🏗️ Arsitektur Proyek (Serverless Enterprise)
 
-Proyek ini menggunakan arsitektur **Next.js App Router**. Berjalan sepenuhnya sebagai aplikasi *Full-Stack* (Frontend React dan Backend Next.js API Routes).
+Proyek ini menggunakan arsitektur **Next.js App Router** modern yang disokong oleh **Supabase** (Database) dan **Google Drive API** (Penyimpanan File Eksternal).
 
 ### Direktori Utama:
 - `src/app/page.tsx`: Halaman utama (*dashboard*) yang memuat *Browser*, *Sync Manager*, dan *Range Sync*.
-- `src/app/api/`: Berisi rute backend untuk *fetching* API LKPP, proses sinkronisasi, dan ekspor.
-  - `/api/inaproc`: Mengambil data (dengan fitur pagination/cursor).
-  - `/api/sync`: Memproses sinkronisasi dan menyimpan ke lokal.
-  - `/api/export`: Menghasilkan file unduhan Excel ke sisi klien.
+- `src/app/api/`: Berisi rute backend untuk *fetching* API LKPP, proses sinkronisasi, dan cron.
+  - `/api/sync`: Memproses sinkronisasi dari INAPROC ke Supabase, lalu memicu ekspor GDrive.
+  - `/api/local`: Mengambil ribuan baris data langsung dari Supabase ke tampilan web dengan kecepatan kilat.
+  - `/api/cron/daily-sync`: Rute ini dipicu oleh Vercel secara otomatis setiap jam 2 pagi.
 - `src/lib/`: Kode logika bisnis dan utilitas.
-  - `excel-service.ts`: Sistem manajemen operasi file Excel (Baca, Tulis, Deduplikasi).
-  - `sync-state.ts` & `drive-config.ts`: Konfigurasi *endpoint* dan manajemen *state* saat sinkronisasi.
-- `src/components/`: Komponen UI modular (Radix UI, Sheet, Badge, Loader, dll).
+  - `supabase.ts`: Inisialisasi klien koneksi PostgreSQL.
+  - `gdrive.ts`: Klien autentikasi dan operasi Google Drive API menggunakan Service Account GCP.
+  - `excel-service.ts`: Sistem manajemen operasi data, bulk-upsert Supabase, dan generator Excel.
 
 ---
 
 ## 🛠️ Teknologi yang Digunakan
 
 - **Framework Utama**: [Next.js 16.1.1](https://nextjs.org/) (App Router)
-- **Library UI**: [React 19.2.3](https://react.dev/)
-- **Bahasa**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Komponen UI**: [Radix UI](https://www.radix-ui.com/) & [Lucide React](https://lucide.dev/) (Ikon)
-- **Animasi**: [Framer Motion](https://www.framer.com/motion/)
-- **Data Fetching & Caching**: [TanStack React Query](https://tanstack.com/query/latest)
-- **Virtualisasi Tabel**: [TanStack Virtual](https://tanstack.com/virtual/latest)
-- **Pemrosesan Excel**: [SheetJS (xlsx)](https://sheetjs.com/)
+- **Database**: [Supabase (PostgreSQL)](https://supabase.com/)
+- **File Storage**: Google Drive API (`googleapis`)
+- **Library UI**: React 19.2.3, Tailwind CSS v4, Radix UI, Framer Motion
+- **Data Fetching & Caching**: TanStack React Query
+- **Virtualisasi Tabel**: TanStack Virtual
+- **Pemrosesan Excel**: SheetJS (xlsx)
+
 
 ---
 
