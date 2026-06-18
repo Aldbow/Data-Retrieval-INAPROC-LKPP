@@ -44,7 +44,6 @@ export async function GET(request: Request) {
                 headers: {
                     'Authorization': `Bearer ${JWT_TOKEN}`,
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json',
                 },
             });
 

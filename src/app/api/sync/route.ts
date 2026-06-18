@@ -184,7 +184,6 @@ export async function POST(request: Request) {
                     headers: {
                         'Authorization': `Bearer ${JWT_TOKEN}`,
                         'Accept': 'application/json',
-                        'Content-Type': 'application/json',
                     },
                 });
 
