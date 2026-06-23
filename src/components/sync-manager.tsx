@@ -73,7 +73,8 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
         queryFn: async () => {
             const res = await fetch(`/api/sync/status?verify=false`);
             if (!res.ok) throw new Error("Failed to fetch sync status");
-            return res.json();
+            const data = await res.json();
+            return data as { endpoints: EndpointStatus[]; schedule: ScheduleConfig | null; basePath: string };
         },
         refetchInterval: 10000 // Poll every 10 seconds
     });
@@ -167,8 +168,8 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates),
             });
-            const data = await res.json();
-            setSchedule(data.schedule);
+            await res.json();
+            refetch();
             toast.success("Schedule updated");
         } catch (error) {
             toast.error("Failed to update schedule");
@@ -200,7 +201,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
     };
 
     const groupedStatuses = useMemo(() => {
-        return statuses.reduce((acc, status) => {
+        return statuses.reduce((acc: Record<string, Record<string, EndpointStatus[]>>, status: EndpointStatus) => {
             const version = status.endpoint.startsWith('/legacy') ? 'Legacy' : 'V1';
             let category = 'Lainnya';
             if (status.endpoint.includes('ekatalog')) category = 'E-Katalog';
@@ -371,8 +372,8 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                         </div>
                     ) : (
                         <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
-                            {displayedEndpoints.map((status) => {
-                                const yearState = status.years.find((y) => y.year === year);
+                            {displayedEndpoints.map((status: EndpointStatus) => {
+                                const yearState = status.years.find((y: any) => y.year === year);
                                 const progress = syncProgress[status.endpoint];
                                 const isSyncingThis = syncing === status.endpoint;
 

@@ -19,6 +19,7 @@ export const ENDPOINTS: Endpoint[] = [
     { label: "Paket E-Purchasing (Live)", value: "/v1/ekatalog/paket-e-purchasing", type: "v1" },
     { label: "Penyedia Detail (Live)", value: "/v1/ekatalog/penyedia-detail", type: "v1", requiresId: true },
     // RUP
+    { label: "RUP History Kaji Ulang", value: "/v1/rup/history-kaji-ulang", type: "v1" },
     { label: "RUP Master Satker", value: "/v1/rup/master-satker", type: "v1" },
     { label: "RUP Paket Anggaran Penyedia", value: "/v1/rup/paket-anggaran-penyedia", type: "v1" },
     { label: "RUP Paket Anggaran Swakelola", value: "/v1/rup/paket-anggaran-swakelola", type: "v1" },

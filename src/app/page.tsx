@@ -51,12 +51,19 @@ export default function Home() {
         const query = new URLSearchParams({
             year,
             limit: '50',
-            endpoint: selectedEndpoint,
         });
         if (search) query.set('search', search);
         if (pageParam) query.set('cursor', pageParam);
 
-        const res = await fetch(`/api/inaproc?${query.toString()}`);
+        let apiUrl = '';
+        if (selectedEndpoint === '/v1/rup/history-kaji-ulang') {
+            apiUrl = `/api/v1/rup/history-kaji-ulang?${query.toString()}`;
+        } else {
+            query.set('endpoint', selectedEndpoint);
+            apiUrl = `/api/inaproc?${query.toString()}`;
+        }
+
+        const res = await fetch(apiUrl);
         if (!res.ok) {
             setApiStatus('disconnected');
             throw new Error("API Response not ok");
