@@ -61,10 +61,8 @@ export const ENDPOINTS: Endpoint[] = [
     // Legacy RUP
     { label: "Legacy: RUP Master Satker", value: "/legacy/rup/master-satker", type: "legacy" },
     { label: "Legacy: RUP Paket Anggaran Swakelola", value: "/legacy/rup/paket-anggaran-swakelola", type: "legacy" },
-    { label: "Legacy: RUP Paket Anggaran Swakelola All Status", value: "/legacy/rup/paket-anggaran-swakelola-all-status", type: "legacy" },
     { label: "Legacy: RUP Paket Swakelola Terumumkan", value: "/legacy/rup/paket-swakelola-terumumkan", type: "legacy" },
     { label: "Legacy: RUP Paket Anggaran Penyedia", value: "/legacy/rup/paket-anggaran-penyedia", type: "legacy" },
-    { label: "Legacy: RUP Paket Anggaran Penyedia All Status", value: "/legacy/rup/paket-anggaran-penyedia-all-status", type: "legacy" },
     { label: "Legacy: RUP Paket Penyedia Terumumkan", value: "/legacy/rup/paket-penyedia-terumumkan", type: "legacy" },
     { label: "Legacy: RUP Program Master", value: "/legacy/rup/program-master", type: "legacy" },
     // Legacy Bela

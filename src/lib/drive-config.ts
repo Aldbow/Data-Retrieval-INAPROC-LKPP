@@ -100,8 +100,6 @@ export function getUniqueKeyFields(endpoint: string): string[] {
     'tender-selesai-nilai': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
     'non-tender-ekontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
     'toko-daring-realisasi': ['kode_rup||kd_rup', 'id_realisasi'],
-    'paket-anggaran-penyedia-all-status': ['kode_rup||kd_rup'],
-    'paket-anggaran-swakelola-all-status': ['kode_rup||kd_rup'],
   };
 
   // Extract endpoint name from path
