@@ -207,6 +207,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
             if (status.endpoint.includes('ekatalog')) category = 'E-Katalog';
             else if (status.endpoint.includes('rup')) category = 'RUP';
             else if (status.endpoint.includes('tender')) category = 'Tender';
+            else if (status.endpoint.includes('bela')) category = 'Bela Pengadaan';
 
             if (!acc[version]) acc[version] = { 'Semua': [] };
             if (!acc[version][category]) acc[version][category] = [];

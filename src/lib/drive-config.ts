@@ -18,6 +18,7 @@ export const DRIVE_CONFIG = {
     '/v1/tender/': 'v1/tender',
 
     // Legacy mappings
+    '/legacy/bela/': 'legacy/bela',
     '/legacy/ekatalog-archive/': 'legacy/ekatalog-archive',
     '/legacy/ekatalog/': 'legacy/ekatalog',
     '/legacy/rup/': 'legacy/rup',
@@ -95,7 +96,12 @@ export function getUniqueKeyFields(endpoint: string): string[] {
     'pengumuman': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
     'peserta-tender': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_penyedia'],
     'tender-ekontrak-kontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
+    'tender-ekontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
     'tender-selesai-nilai': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
+    'non-tender-ekontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
+    'toko-daring-realisasi': ['kode_rup||kd_rup', 'id_realisasi'],
+    'paket-anggaran-penyedia-all-status': ['kode_rup||kd_rup'],
+    'paket-anggaran-swakelola-all-status': ['kode_rup||kd_rup'],
   };
 
   // Extract endpoint name from path
