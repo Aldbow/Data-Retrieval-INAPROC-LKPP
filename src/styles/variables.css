@@ -1,0 +1,28 @@
+:root {
+  /* Color Palette (Dark Premium) */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  
+  /* Glassmorphism Variables */
+  --glass-bg: rgba(30, 41, 59, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: 16px;
+  
+  /* Typography */
+  --font-primary: 'Inter', system-ui, sans-serif;
+  
+  /* Spacing */
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Transitions */
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

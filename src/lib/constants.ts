@@ -18,12 +18,15 @@ export const ENDPOINTS: Endpoint[] = [
     // E-Katalog Live
     { label: "Paket E-Purchasing (Live)", value: "/v1/ekatalog/paket-e-purchasing", type: "v1" },
     { label: "Penyedia Detail (Live)", value: "/v1/ekatalog/penyedia-detail", type: "v1", requiresId: true },
+    { label: "⚠️ List Produk Penyedia (Live)", value: "/v1/ekatalog/list-produk-penyedia", type: "v1", requiresId: true },
     // RUP
     { label: "RUP History Kaji Ulang", value: "/v1/rup/history-kaji-ulang", type: "v1" },
     { label: "RUP Master Satker", value: "/v1/rup/master-satker", type: "v1" },
     { label: "RUP Paket Anggaran Penyedia", value: "/v1/rup/paket-anggaran-penyedia", type: "v1" },
     { label: "RUP Paket Anggaran Swakelola", value: "/v1/rup/paket-anggaran-swakelola", type: "v1" },
+    { label: "RUP Paket Penyedia", value: "/v1/rup/paket-penyedia", type: "v1" },
     { label: "RUP Paket Penyedia Terumumkan", value: "/v1/rup/paket-penyedia-terumumkan", type: "v1" },
+    { label: "RUP Paket Swakelola", value: "/v1/rup/paket-swakelola", type: "v1" },
     { label: "RUP Paket Swakelola Terumumkan", value: "/v1/rup/paket-swakelola-terumumkan", type: "v1" },
     { label: "RUP Program Master", value: "/v1/rup/program-master", type: "v1" },
     // Tender
@@ -58,6 +61,13 @@ export const ENDPOINTS: Endpoint[] = [
     { label: "Legacy: Pencatatan Swakelola", value: "/legacy/tender/pencatatan-swakelola", type: "legacy" },
     { label: "Legacy: Pengumuman", value: "/legacy/tender/pengumuman", type: "legacy" },
     { label: "Legacy: Tender Ekontrak Kontrak", value: "/legacy/tender/tender-ekontrak-kontrak", type: "legacy" },
+    { label: "Legacy: Non-Tender Ekontrak BAPBAST", value: "/legacy/tender/non-tender-ekontrak-bapbast", type: "legacy" },
+    { label: "Legacy: Non-Tender Ekontrak SPMKSPP", value: "/legacy/tender/non-tender-ekontrak-spmkspp", type: "legacy" },
+    { label: "Legacy: Non-Tender Ekontrak SPPBJ", value: "/legacy/tender/non-tender-ekontrak-sppbj", type: "legacy" },
+    { label: "Legacy: Tender Ekontrak BAPBAST", value: "/legacy/tender/tender-ekontrak-bapbast", type: "legacy" },
+    { label: "Legacy: Tender Ekontrak SPMKSPP", value: "/legacy/tender/tender-ekontrak-spmkspp", type: "legacy" },
+    { label: "Legacy: Tender Ekontrak SPPBJ", value: "/legacy/tender/tender-ekontrak-sppbj", type: "legacy" },
+    { label: "Legacy: Tender Selesai", value: "/legacy/tender/tender-selesai", type: "legacy" },
     // Legacy RUP
     { label: "Legacy: RUP Master Satker", value: "/legacy/rup/master-satker", type: "legacy" },
     { label: "Legacy: RUP Paket Anggaran Swakelola", value: "/legacy/rup/paket-anggaran-swakelola", type: "legacy" },
@@ -65,6 +75,11 @@ export const ENDPOINTS: Endpoint[] = [
     { label: "Legacy: RUP Paket Anggaran Penyedia", value: "/legacy/rup/paket-anggaran-penyedia", type: "legacy" },
     { label: "Legacy: RUP Paket Penyedia Terumumkan", value: "/legacy/rup/paket-penyedia-terumumkan", type: "legacy" },
     { label: "Legacy: RUP Program Master", value: "/legacy/rup/program-master", type: "legacy" },
+    { label: "Legacy: RUP Kegiatan Master", value: "/legacy/rup/kegiatan-master", type: "legacy" },
+    { label: "Legacy: RUP Paket Penyedia Lokasi", value: "/legacy/rup/paket-penyedia-lokasi", type: "legacy" },
+    { label: "Legacy: RUP Paket Swakelola Lokasi", value: "/legacy/rup/paket-swakelola-lokasi", type: "legacy" },
+    { label: "Legacy: RUP Struktur Anggaran PD", value: "/legacy/rup/struktur-anggaran-pd", type: "legacy" },
+    { label: "Legacy: RUP Sub-Kegiatan Master", value: "/legacy/rup/sub-kegiatan-master", type: "legacy" },
     // Legacy Bela
     { label: "Legacy: Bela Toko Daring Realisasi", value: "/legacy/bela/toko-daring-realisasi", type: "legacy" },
     // Legacy E-Katalog Archive (detail endpoints require specific IDs)
