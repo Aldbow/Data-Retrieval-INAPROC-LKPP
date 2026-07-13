@@ -74,7 +74,8 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
         queryFn: async () => {
             const res = await fetch(`/api/sync/status?verify=false`);
             if (!res.ok) throw new Error("Failed to fetch sync status");
-            return res.json();
+            const data = await res.json();
+            return data as { endpoints: EndpointStatus[]; schedule: ScheduleConfig | null; basePath: string };
         },
         refetchInterval: 10000 // Poll every 10 seconds
     });
@@ -201,12 +202,13 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
     };
 
     const groupedStatuses = useMemo(() => {
-        return statuses.reduce((acc, status) => {
+        return statuses.reduce((acc: Record<string, Record<string, EndpointStatus[]>>, status: EndpointStatus) => {
             const version = status.endpoint.startsWith('/legacy') ? 'Legacy' : 'V1';
             let category = 'Lainnya';
             if (status.endpoint.includes('ekatalog')) category = 'E-Katalog';
             else if (status.endpoint.includes('rup')) category = 'RUP';
             else if (status.endpoint.includes('tender')) category = 'Tender';
+            else if (status.endpoint.includes('bela')) category = 'Bela Pengadaan';
 
             if (!acc[version]) acc[version] = { 'Semua': [] };
             if (!acc[version][category]) acc[version][category] = [];
@@ -370,9 +372,9 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                             <p className="text-sm text-muted-foreground">Adjust your filters to see more endpoints.</p>
                         </div>
                     ) : (
-                        <StaggerContainer key={`${activeVersionTab}-${activeCategoryTab}`} className="flex flex-col p-4 sm:p-6 gap-3">
-                            {displayedEndpoints.map((status) => {
-                                const yearState = status.years.find((y) => y.year === year);
+                        <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
+                            {displayedEndpoints.map((status: EndpointStatus) => {
+                                const yearState = status.years.find((y: any) => y.year === year);
                                 const progress = syncProgress[status.endpoint];
                                 const isSyncingThis = syncing === status.endpoint;
                                 const statusInfo = getStatusInfo(status.endpoint, status);

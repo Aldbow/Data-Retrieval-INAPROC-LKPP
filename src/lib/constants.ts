@@ -19,6 +19,7 @@ export const ENDPOINTS: Endpoint[] = [
     { label: "Paket E-Purchasing (Live)", value: "/v1/ekatalog/paket-e-purchasing", type: "v1" },
     { label: "Penyedia Detail (Live)", value: "/v1/ekatalog/penyedia-detail", type: "v1", requiresId: true },
     // RUP
+    { label: "RUP History Kaji Ulang", value: "/v1/rup/history-kaji-ulang", type: "v1" },
     { label: "RUP Master Satker", value: "/v1/rup/master-satker", type: "v1" },
     { label: "RUP Paket Anggaran Penyedia", value: "/v1/rup/paket-anggaran-penyedia", type: "v1" },
     { label: "RUP Paket Anggaran Swakelola", value: "/v1/rup/paket-anggaran-swakelola", type: "v1" },
@@ -29,6 +30,7 @@ export const ENDPOINTS: Endpoint[] = [
     { label: "Tender: Jadwal Tahapan Non-Tender", value: "/v1/tender/jadwal-tahapan-non-tender", type: "v1" },
     { label: "Tender: Jadwal Tahapan Tender", value: "/v1/tender/jadwal-tahapan-tender", type: "v1" },
     { label: "Tender: Non-Tender Ekontrak Kontrak", value: "/v1/tender/non-tender-ekontrak-kontrak", type: "v1" },
+    { label: "Tender: Non-Tender Ekontrak", value: "/v1/tender/non-tender-ekontrak", type: "v1" },
     { label: "Tender: Non-Tender Pengumuman", value: "/v1/tender/non-tender-pengumuman", type: "v1" },
     { label: "Tender: Non-Tender Selesai", value: "/v1/tender/non-tender-selesai", type: "v1" },
     { label: "Tender: Pencatatan Non-Tender", value: "/v1/tender/pencatatan-non-tender", type: "v1" },
@@ -38,6 +40,7 @@ export const ENDPOINTS: Endpoint[] = [
     { label: "Tender: Pengumuman", value: "/v1/tender/pengumuman", type: "v1" },
     { label: "Tender: Peserta Tender", value: "/v1/tender/peserta-tender", type: "v1" },
     { label: "Tender: Tender Ekontrak Kontrak", value: "/v1/tender/tender-ekontrak-kontrak", type: "v1" },
+    { label: "Tender: Tender Ekontrak", value: "/v1/tender/tender-ekontrak", type: "v1" },
     { label: "Tender: Tender Selesai Nilai", value: "/v1/tender/tender-selesai-nilai", type: "v1" },
 
     // ==================== LEGACY ENDPOINTS ====================
@@ -62,6 +65,8 @@ export const ENDPOINTS: Endpoint[] = [
     { label: "Legacy: RUP Paket Anggaran Penyedia", value: "/legacy/rup/paket-anggaran-penyedia", type: "legacy" },
     { label: "Legacy: RUP Paket Penyedia Terumumkan", value: "/legacy/rup/paket-penyedia-terumumkan", type: "legacy" },
     { label: "Legacy: RUP Program Master", value: "/legacy/rup/program-master", type: "legacy" },
+    // Legacy Bela
+    { label: "Legacy: Bela Toko Daring Realisasi", value: "/legacy/bela/toko-daring-realisasi", type: "legacy" },
     // Legacy E-Katalog Archive (detail endpoints require specific IDs)
     { label: "Legacy: Instansi Satker (Archive)", value: "/legacy/ekatalog-archive/instansi-satker", type: "legacy" },
     { label: "Legacy: Paket E-Purchasing (Archive)", value: "/legacy/ekatalog-archive/paket-e-purchasing", type: "legacy" },

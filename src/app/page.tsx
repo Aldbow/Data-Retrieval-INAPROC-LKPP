@@ -53,16 +53,20 @@ export default function Home() {
         setApiError(null);
         const query = new URLSearchParams({
             year,
-            limit: dataSource === 'local' ? '999999' : '50',
-            endpoint: selectedEndpoint,
+            limit: '50',
         });
         if (search) query.set('search', search);
         if (pageParam) query.set('cursor', pageParam);
 
-        const route = dataSource === 'local' ? '/api/local' : '/api/inaproc';
-        const res = await fetch(`${route}?${query.toString()}`);
-        const data = await res.json();
+        let apiUrl = '';
+        if (selectedEndpoint === '/v1/rup/history-kaji-ulang') {
+            apiUrl = `/api/v1/rup/history-kaji-ulang?${query.toString()}`;
+        } else {
+            query.set('endpoint', selectedEndpoint);
+            apiUrl = `/api/inaproc?${query.toString()}`;
+        }
 
+        const res = await fetch(apiUrl);
         if (!res.ok) {
             setApiStatus('disconnected');
             setApiError({ message: data.error || "API Response not ok", local_not_found: data.local_not_found });

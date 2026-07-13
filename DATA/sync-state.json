@@ -1,0 +1,922 @@
+{
+  "syncState": {
+    "/v1/ekatalog-archive/paket-e-purchasing": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIyMjgxNjgzMzI1MTk4MzY5NH0=",
+        "lastSyncDate": "2026-06-23T05:22:41.319Z",
+        "totalRecords": 1175,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\paket-e-purchasing_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTIxODIyNTMxMTY4OTIzNTg0Nn0=",
+        "lastSyncDate": "2026-06-23T05:30:16.094Z",
+        "totalRecords": 1844,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\paket-e-purchasing_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTIyMTA5NzI1NTY5OTE1NTAyMn0=",
+        "lastSyncDate": "2026-06-23T05:35:15.914Z",
+        "totalRecords": 143,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\paket-e-purchasing_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:37:56.926Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:32.542Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/ekatalog-archive/instansi-satker": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTEyMzcwMTYxMTQ5NjA2NjY1OH0=",
+        "lastSyncDate": "2026-06-23T05:22:43.119Z",
+        "totalRecords": 210,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\instansi-satker_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTEyMzcwMTYxMTQ5NjA2NjY1OH0=",
+        "lastSyncDate": "2026-06-23T05:30:17.967Z",
+        "totalRecords": 210,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\instansi-satker_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTEyMzcwMTYxMTQ5NjA2NzA3Mn0=",
+        "lastSyncDate": "2026-06-23T05:35:17.841Z",
+        "totalRecords": 210,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\instansi-satker_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTEyMzcwMTYxMTQ5NjA2NzA3Mn0=",
+        "lastSyncDate": "2026-06-23T05:37:57.942Z",
+        "totalRecords": 210,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\instansi-satker_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": "eyJpZCI6OTEyMzcwMTYxMTQ5NjA2NzA3Mn0=",
+        "lastSyncDate": "2026-06-23T05:40:33.528Z",
+        "totalRecords": 210,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog-archive\\instansi-satker_2027.xlsx"
+      }
+    },
+    "/v1/ekatalog/paket-e-purchasing": {
+      "2023": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:22:43.737Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2024": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:30:18.568Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTE1MjYwMDMzMTQ2MjE5OTAyNH0=",
+        "lastSyncDate": "2026-06-23T05:35:22.018Z",
+        "totalRecords": 781,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog\\paket-e-purchasing_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTE2NjUzODE0OTQxODY3MzMwOH0=",
+        "lastSyncDate": "2026-06-23T05:38:02.062Z",
+        "totalRecords": 847,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\ekatalog\\paket-e-purchasing_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:34.907Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/rup/master-satker": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTE3Mjc2ODE1NTQzNDA1MTU4NH0=",
+        "lastSyncDate": "2026-06-23T05:23:27.719Z",
+        "totalRecords": 247,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\master-satker_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTE3Mjc2ODE1NTQzNDA1MTExMX0=",
+        "lastSyncDate": "2026-06-23T05:30:32.867Z",
+        "totalRecords": 247,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\master-satker_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTE3Mjc2ODE1NTQzNDA1MTU4NH0=",
+        "lastSyncDate": "2026-06-23T05:36:44.398Z",
+        "totalRecords": 247,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\master-satker_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTE3Mjc2ODE1NTQzNDA1MTU4NH0=",
+        "lastSyncDate": "2026-06-23T05:38:55.603Z",
+        "totalRecords": 247,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\master-satker_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": "eyJpZCI6OTE3Mjc2ODE1NTQzNDA1MTU4NH0=",
+        "lastSyncDate": "2026-06-23T05:40:36.044Z",
+        "totalRecords": 247,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\master-satker_2027.xlsx"
+      }
+    },
+    "/v1/rup/paket-anggaran-penyedia": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIyMzA1MjU1MjQ4ODYwODc5OH0=",
+        "lastSyncDate": "2026-06-23T05:25:10.558Z",
+        "totalRecords": 9670,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-penyedia_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTIyMjkzMzc2OTU0NTUxNDY3OH0=",
+        "lastSyncDate": "2026-06-23T05:32:13.217Z",
+        "totalRecords": 9336,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-penyedia_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTIxODk2NzQ0ODY2MDMyOTgzNn0=",
+        "lastSyncDate": "2026-06-23T05:37:06.892Z",
+        "totalRecords": 3281,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-penyedia_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTIyMjY3NjM2ODczNjQ4MjI5OX0=",
+        "lastSyncDate": "2026-06-23T05:39:40.043Z",
+        "totalRecords": 7620,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-penyedia_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:36.914Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/rup/paket-anggaran-swakelola": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIyMzMwMjY4MzIxMTY2NzU4OH0=",
+        "lastSyncDate": "2026-06-23T05:26:47.226Z",
+        "totalRecords": 9602,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-swakelola_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTIyMTAwNzcxNTAwMzI3MzMxNH0=",
+        "lastSyncDate": "2026-06-23T05:33:08.489Z",
+        "totalRecords": 6103,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-swakelola_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTIxODM2MjUxNTU1MDYxNzA2OH0=",
+        "lastSyncDate": "2026-06-23T05:37:14.805Z",
+        "totalRecords": 1188,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-swakelola_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTEwMTg4OTE3MjQ3MDQ5ODU5M30=",
+        "lastSyncDate": "2026-06-23T05:39:42.891Z",
+        "totalRecords": 22,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-anggaran-swakelola_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.013Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/rup/paket-penyedia-terumumkan": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIyMzEyMDkyOTg5NjUwMDkwNX0=",
+        "lastSyncDate": "2026-06-23T05:27:28.578Z",
+        "totalRecords": 9604,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-penyedia-terumumkan_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTIyMzM0MzcxOTgwMTYzMDU1MH0=",
+        "lastSyncDate": "2026-06-23T05:33:50.559Z",
+        "totalRecords": 9331,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-penyedia-terumumkan_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTIxOTUwODkyMTU0NzA1MTQ1NX0=",
+        "lastSyncDate": "2026-06-23T05:37:28.263Z",
+        "totalRecords": 3255,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-penyedia-terumumkan_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTIyMjc2MDE5NTQzMjI3MTYxNn0=",
+        "lastSyncDate": "2026-06-23T05:40:16.674Z",
+        "totalRecords": 7613,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-penyedia-terumumkan_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.104Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/rup/paket-swakelola-terumumkan": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIyMzA0ODgzNDczMjcyMzk4Nn0=",
+        "lastSyncDate": "2026-06-23T05:28:09.500Z",
+        "totalRecords": 9638,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-swakelola-terumumkan_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTIxMTUwNDYxMzM5MTE0MzI5M30=",
+        "lastSyncDate": "2026-06-23T05:34:19.709Z",
+        "totalRecords": 6098,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-swakelola-terumumkan_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTIxNzU0MzEwMTQ2Mjc5MjE1OH0=",
+        "lastSyncDate": "2026-06-23T05:37:34.476Z",
+        "totalRecords": 1183,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-swakelola-terumumkan_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTA1MjA0NTg1MzA2Njk4ODc5OX0=",
+        "lastSyncDate": "2026-06-23T05:40:20.186Z",
+        "totalRecords": 22,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\paket-swakelola-terumumkan_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.185Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/rup/program-master": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTEzODA2ODE1MTAwOTIwMzExMX0=",
+        "lastSyncDate": "2026-06-23T05:28:12.112Z",
+        "totalRecords": 194,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\program-master_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTE3ODExNTYwOTY3NTA5NjYxN30=",
+        "lastSyncDate": "2026-06-23T05:34:22.070Z",
+        "totalRecords": 194,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\program-master_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6ODkyMzYyMTgxMTg3MzY0NzkyMX0=",
+        "lastSyncDate": "2026-06-23T05:37:36.559Z",
+        "totalRecords": 88,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\program-master_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTAyMzQ2NzE0MzA3OTc1ODcxMH0=",
+        "lastSyncDate": "2026-06-23T05:40:21.342Z",
+        "totalRecords": 85,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\program-master_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.255Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/jadwal-tahapan-non-tender": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTE2NzEyNTAyOTc0MjEwMjExOH0=",
+        "lastSyncDate": "2026-06-23T05:28:13.791Z",
+        "totalRecords": 295,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\jadwal-tahapan-non-tender_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTE0MzU5MTUxNDAwMzA3NjM5Mn0=",
+        "lastSyncDate": "2026-06-23T05:34:24.331Z",
+        "totalRecords": 340,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\jadwal-tahapan-non-tender_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTE1OTQwODE4MDc4MTM3MzQxOH0=",
+        "lastSyncDate": "2026-06-23T05:37:38.967Z",
+        "totalRecords": 282,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\jadwal-tahapan-non-tender_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTA3Nzg5Mjk1OTM5NDgwMDgxNH0=",
+        "lastSyncDate": "2026-06-23T05:40:24.213Z",
+        "totalRecords": 258,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\jadwal-tahapan-non-tender_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.330Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/jadwal-tahapan-tender": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIwNTY5NjE0MzQ5NTQ2OTkwOX0=",
+        "lastSyncDate": "2026-06-23T05:28:28.773Z",
+        "totalRecords": 2955,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\jadwal-tahapan-tender_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTIyMDAwODI1NDU5NjY1MjcyNX0=",
+        "lastSyncDate": "2026-06-23T05:34:31.971Z",
+        "totalRecords": 1658,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\jadwal-tahapan-tender_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTE3NzQwMDM0MTE3MDkzMjEwNX0=",
+        "lastSyncDate": "2026-06-23T05:37:40.335Z",
+        "totalRecords": 81,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\jadwal-tahapan-tender_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:24.913Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.401Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/non-tender-ekontrak-kontrak": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTAzMzc2MjQ3MDM2NTQyNjEyMn0=",
+        "lastSyncDate": "2026-06-23T05:28:30.038Z",
+        "totalRecords": 56,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-ekontrak-kontrak_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTE2NTM4MjQ5MTg1NDk4ODY0N30=",
+        "lastSyncDate": "2026-06-23T05:34:33.381Z",
+        "totalRecords": 51,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-ekontrak-kontrak_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6ODA4MjQ2MzU1MDI3MTMwODg4NX0=",
+        "lastSyncDate": "2026-06-23T05:37:42.262Z",
+        "totalRecords": 17,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-ekontrak-kontrak_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6ODM4NDEyMDY1MTcwNTYyMzU1Mn0=",
+        "lastSyncDate": "2026-06-23T05:40:25.360Z",
+        "totalRecords": 33,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-ekontrak-kontrak_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.474Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/non-tender-pengumuman": {
+      "2023": {
+        "lastCursor": "eyJpZCI6ODU4NjgzMjA2ODcyNjA2MzUxNn0=",
+        "lastSyncDate": "2026-06-23T05:28:31.279Z",
+        "totalRecords": 58,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-pengumuman_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6ODQwMDY1NDAzNTYyODcwMDA5Nn0=",
+        "lastSyncDate": "2026-06-23T05:34:35.334Z",
+        "totalRecords": 65,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-pengumuman_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTE2OTIyMzQ2NzkyMzk2OTkzMH0=",
+        "lastSyncDate": "2026-06-23T05:37:43.305Z",
+        "totalRecords": 51,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-pengumuman_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6OTA4MDIyNjMxMTIxODg4ODEwOX0=",
+        "lastSyncDate": "2026-06-23T05:40:27.302Z",
+        "totalRecords": 44,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-pengumuman_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.551Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/non-tender-selesai": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTA1NzYzNDYzMDUwNTg2MDkwNn0=",
+        "lastSyncDate": "2026-06-23T05:28:32.483Z",
+        "totalRecords": 58,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-selesai_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTExOTMyMjc2MjE5ODE2NjM1OX0=",
+        "lastSyncDate": "2026-06-23T05:34:37.299Z",
+        "totalRecords": 62,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-selesai_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6ODc5MjgwMDE5ODM4OTk5MjMzMn0=",
+        "lastSyncDate": "2026-06-23T05:37:45.290Z",
+        "totalRecords": 44,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-selesai_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6ODQxNTQwMzkwNTc5Njc0MjE0NH0=",
+        "lastSyncDate": "2026-06-23T05:40:29.257Z",
+        "totalRecords": 43,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\non-tender-selesai_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.623Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/pencatatan-non-tender": {
+      "2023": {
+        "lastCursor": "eyJpZCI6ODUwMjgxMTY3MTIxOTMzNDk3NX0=",
+        "lastSyncDate": "2026-06-23T05:28:33.459Z",
+        "totalRecords": 6,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6ODk1Nzk3MjM4MTAxMDYwNzU2Mn0=",
+        "lastSyncDate": "2026-06-23T05:34:39.302Z",
+        "totalRecords": 29,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTA1MTUyODk3NjQzMDI3ODkzMn0=",
+        "lastSyncDate": "2026-06-23T05:37:46.291Z",
+        "totalRecords": 34,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6NzIzNjUzNjQ4NDUyNTk3NTQ5MH0=",
+        "lastSyncDate": "2026-06-23T05:40:30.254Z",
+        "totalRecords": 5,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.698Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/pencatatan-non-tender-realisasi": {
+      "2023": {
+        "lastCursor": "eyJpZCI6NDI1MTIzNDExMjkyNjYwODE0M30=",
+        "lastSyncDate": "2026-06-23T05:28:34.508Z",
+        "totalRecords": 4,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender-realisasi_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTE5OTU1NjQwNTg2OTUxNzcwN30=",
+        "lastSyncDate": "2026-06-23T05:34:42.062Z",
+        "totalRecords": 212,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender-realisasi_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTEwMTc3MzE3MzU4NDA4NzA1MH0=",
+        "lastSyncDate": "2026-06-23T05:37:47.354Z",
+        "totalRecords": 58,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender-realisasi_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": "eyJpZCI6NzkxNDM5OTEyMjY5MjMxMzQ5MH0=",
+        "lastSyncDate": "2026-06-23T05:40:31.281Z",
+        "totalRecords": 5,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-non-tender-realisasi_2026.xlsx"
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.780Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/pencatatan-swakelola": {
+      "2023": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:28:35.123Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6NzQzMDQyMzcyNjEzODU1OTkyM30=",
+        "lastSyncDate": "2026-06-23T05:34:43.266Z",
+        "totalRecords": 2,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-swakelola_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:37:48.903Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:31.997Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.851Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/pencatatan-swakelola-realisasi": {
+      "2023": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:28:35.206Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6NTcyNzIwOTM3NTk4NjM4MzY1Mn0=",
+        "lastSyncDate": "2026-06-23T05:34:44.300Z",
+        "totalRecords": 4,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pencatatan-swakelola-realisasi_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:37:49.007Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:32.081Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:37.922Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/pengumuman": {
+      "2023": {
+        "lastCursor": "eyJpZCI6ODkxNzU0ODY2MjY0MDAyMjc0Mn0=",
+        "lastSyncDate": "2026-06-23T05:28:36.453Z",
+        "totalRecords": 148,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pengumuman_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTE5NTA5MDkxNzE2NjYzOTkxM30=",
+        "lastSyncDate": "2026-06-23T05:34:46.339Z",
+        "totalRecords": 86,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pengumuman_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6NDI3NDI0NjkwMzM3MDU1NTgwN30=",
+        "lastSyncDate": "2026-06-23T05:37:49.465Z",
+        "totalRecords": 6,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\pengumuman_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:32.212Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:38.016Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/peserta-tender": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIyMTc4NDYyMTU5MDE4MjgyMX0=",
+        "lastSyncDate": "2026-06-23T05:29:19.323Z",
+        "totalRecords": 2869,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\peserta-tender_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTIyMjcwOTc3MzYxNTM5ODA5Mn0=",
+        "lastSyncDate": "2026-06-23T05:35:09.036Z",
+        "totalRecords": 1870,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\peserta-tender_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTE4Njk5Nzk0NTkwNDkyNjc5N30=",
+        "lastSyncDate": "2026-06-23T05:37:52.744Z",
+        "totalRecords": 362,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\peserta-tender_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:32.294Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:38.094Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/tender-ekontrak-kontrak": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTE4NzE3ODM2MzIxMTI4NTkyNX0=",
+        "lastSyncDate": "2026-06-23T05:29:21.448Z",
+        "totalRecords": 226,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\tender-ekontrak-kontrak_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTEyMjUyMjMzNzI1NTU3NDU1NH0=",
+        "lastSyncDate": "2026-06-23T05:35:10.772Z",
+        "totalRecords": 130,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\tender-ekontrak-kontrak_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6NTgxMDI3MzUyNzM5NTYzMzYzN30=",
+        "lastSyncDate": "2026-06-23T05:37:54.324Z",
+        "totalRecords": 6,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\tender-ekontrak-kontrak_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:32.381Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:38.219Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/v1/tender/tender-selesai-nilai": {
+      "2023": {
+        "lastCursor": "eyJpZCI6ODc1NDM1NTQ2Nzk2MDQ2NTY0NH0=",
+        "lastSyncDate": "2026-06-23T05:29:23.149Z",
+        "totalRecords": 145,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\tender-selesai-nilai_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6ODk4MDY5ODc4NzYxMzgwMzg5NH0=",
+        "lastSyncDate": "2026-06-23T05:35:12.347Z",
+        "totalRecords": 84,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\tender-selesai-nilai_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6MzM5ODA0MDE2MDk0MzM0OTQ5Nn0=",
+        "lastSyncDate": "2026-06-23T05:37:56.252Z",
+        "totalRecords": 6,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\tender\\tender-selesai-nilai_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:32.450Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:38.303Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/tender/jadwal-tahapan-non-tender": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:41.611Z",
+        "totalRecords": 237,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\tender\\jadwal-tahapan-non-tender_2026.xlsx"
+      }
+    },
+    "/legacy/tender/non-tender-ekontrak-kontrak": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:42.223Z",
+        "totalRecords": 30,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\tender\\non-tender-ekontrak-kontrak_2026.xlsx"
+      }
+    },
+    "/legacy/tender/non-tender-selesai": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:42.480Z",
+        "totalRecords": 50,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\tender\\non-tender-selesai_2026.xlsx"
+      }
+    },
+    "/legacy/tender/pencatatan-non-tender-realisasi": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:42.651Z",
+        "totalRecords": 4,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\tender\\pencatatan-non-tender-realisasi_2026.xlsx"
+      }
+    },
+    "/legacy/tender/pencatatan-swakelola-realisasi": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:42.675Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/tender/peserta-tender": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:42.763Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/tender/tender-selesai-nilai": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:42.901Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/tender/jadwal-tahapan-tender": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:43.023Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/tender/non-tender-pengumuman": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:43.346Z",
+        "totalRecords": 46,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\tender\\non-tender-pengumuman_2026.xlsx"
+      }
+    },
+    "/legacy/tender/pencatatan-non-tender": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:43.502Z",
+        "totalRecords": 5,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\tender\\pencatatan-non-tender_2026.xlsx"
+      }
+    },
+    "/legacy/tender/pencatatan-swakelola": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:43.521Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/tender/pengumuman": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:43.616Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/tender/tender-ekontrak-kontrak": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:43.728Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/rup/master-satker": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:44.581Z",
+        "totalRecords": 247,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\rup\\master-satker_2026.xlsx"
+      }
+    },
+    "/legacy/rup/paket-anggaran-swakelola": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:45.320Z",
+        "totalRecords": 81,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\rup\\paket-anggaran-swakelola_2026.xlsx"
+      }
+    },
+    "/legacy/rup/paket-swakelola-terumumkan": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:48:45.507Z",
+        "totalRecords": 22,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\rup\\paket-swakelola-terumumkan_2026.xlsx"
+      }
+    },
+    "/legacy/rup/paket-anggaran-penyedia": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:49:07.733Z",
+        "totalRecords": 10954,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\rup\\paket-anggaran-penyedia_2026.xlsx"
+      }
+    },
+    "/legacy/rup/paket-penyedia-terumumkan": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:49:20.883Z",
+        "totalRecords": 7615,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\rup\\paket-penyedia-terumumkan_2026.xlsx"
+      }
+    },
+    "/legacy/rup/program-master": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:49:24.931Z",
+        "totalRecords": 85,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\rup\\program-master_2026.xlsx"
+      }
+    },
+    "/legacy/ekatalog-archive/instansi-satker": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:49:25.172Z",
+        "totalRecords": 210,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\ekatalog-archive\\instansi-satker_2026.xlsx"
+      }
+    },
+    "/legacy/ekatalog-archive/paket-e-purchasing": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:49:25.218Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    },
+    "/legacy/ekatalog/paket-e-purchasing": {
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-11T07:49:26.128Z",
+        "totalRecords": 608,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\legacy\\ekatalog\\paket-e-purchasing_2026.xlsx"
+      }
+    },
+    "/v1/rup/history-kaji-ulang": {
+      "2023": {
+        "lastCursor": "eyJpZCI6OTIyMzM0NDYzNzAwMDcwMTQ1NX0=",
+        "lastSyncDate": "2026-06-23T05:23:25.336Z",
+        "totalRecords": 11131,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\history-kaji-ulang_2023.xlsx"
+      },
+      "2024": {
+        "lastCursor": "eyJpZCI6OTE5MzczNjgwNTQxNDU1NTM3OH0=",
+        "lastSyncDate": "2026-06-23T05:30:30.782Z",
+        "totalRecords": 3393,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\history-kaji-ulang_2024.xlsx"
+      },
+      "2025": {
+        "lastCursor": "eyJpZCI6OTIyMzExNzgwNTYyMzAxMTE1OH0=",
+        "lastSyncDate": "2026-06-23T05:36:41.542Z",
+        "totalRecords": 20184,
+        "filePath": "C:\\Users\\MSI\\Desktop\\Lena\\Aldiva\\Data-Retrieval-INAPROC-LKPP\\DATA\\v1\\rup\\history-kaji-ulang_2025.xlsx"
+      },
+      "2026": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:38:39.848Z",
+        "totalRecords": 0,
+        "filePath": ""
+      },
+      "2027": {
+        "lastCursor": null,
+        "lastSyncDate": "2026-06-23T05:40:34.998Z",
+        "totalRecords": 0,
+        "filePath": ""
+      }
+    }
+  },
+  "schedule": {
+    "enabled": false,
+    "type": "daily",
+    "lastRun": null,
+    "endpoints": []
+  }
+}
