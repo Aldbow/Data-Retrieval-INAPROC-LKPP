@@ -82,9 +82,11 @@ export function DetailSheet({ open, onOpenChange, data }: DetailSheetProps) {
                                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <div className="h-12 w-12 rounded-full bg-blue-500 blur-xl" />
                                     </div>
-                                    <p className="text-[10px] font-bold tracking-wider text-blue-700 dark:text-blue-300 uppercase mb-1">HPS</p>
+                                    <p className="text-[10px] font-bold tracking-wider text-blue-700 dark:text-blue-300 uppercase mb-1">
+                                        {data.nilai_kontrak ? 'Nilai Kontrak' : 'HPS'}
+                                    </p>
                                     <p className="font-mono text-lg font-bold text-blue-600 dark:text-blue-400">
-                                        {data.total_harga ? formatCurrency(data.total_harga) : '-'}
+                                        {data.nilai_kontrak ? formatCurrency(data.nilai_kontrak) : (data.total_harga ? formatCurrency(data.total_harga) : '-')}
                                     </p>
                                 </div>
                             </div>

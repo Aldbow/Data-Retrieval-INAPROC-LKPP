@@ -58,6 +58,8 @@ export default function Home() {
         let apiUrl = '';
         if (selectedEndpoint === '/v1/rup/history-kaji-ulang') {
             apiUrl = `/api/v1/rup/history-kaji-ulang?${query.toString()}`;
+        } else if (selectedEndpoint === '/v1/tender/non-tender-selesai') {
+            apiUrl = `/api/v1/tender/non-tender-selesai?${query.toString()}`;
         } else {
             query.set('endpoint', selectedEndpoint);
             apiUrl = `/api/inaproc?${query.toString()}`;
