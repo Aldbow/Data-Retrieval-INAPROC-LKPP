@@ -152,4 +152,30 @@ describe('getEndpointTree', () => {
             ['V1 · Data', 'V1 · Dashboard', 'Legacy'],
         );
     });
+
+    // The Sync Manager renders one section at a time and falls back to "all
+    // categories" when the selected one is absent. That fallback only saves it
+    // if every section has something to show.
+    it('never produces an empty section or category', () => {
+        for (const section of getEndpointTree()) {
+            assert.ok(section.categories.length > 0, `${section.title} has no categories`);
+
+            for (const category of section.categories) {
+                assert.ok(
+                    category.endpoints.length > 0,
+                    `${section.title} / ${category.name} is empty`,
+                );
+            }
+        }
+    });
+
+    it('keeps each section self-contained, so a category never spans sections', () => {
+        for (const section of getEndpointTree()) {
+            for (const category of section.categories) {
+                for (const ep of category.endpoints) {
+                    assert.equal(ep.category, category.name, ep.value);
+                }
+            }
+        }
+    });
 });

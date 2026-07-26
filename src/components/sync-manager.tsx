@@ -29,7 +29,7 @@ import {
     RotateCw,
     Square,
 } from 'lucide-react';
-import { FadeIn, StaggerContainer, StaggerItem } from './ui/motion-primitives';
+import { FadeIn } from './ui/motion-primitives';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -159,16 +159,23 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
         return [ALL_CATEGORIES, ...names];
     }, [sectionMembers]);
 
-    useEffect(() => {
-        if (!categories.includes(activeCategory)) setActiveCategory(ALL_CATEGORIES);
-    }, [categories, activeCategory]);
+    /**
+     * Category actually in force.
+     *
+     * Derived rather than corrected after the fact: sections do not share the
+     * same categories, so switching section while one is selected left the
+     * filter pointing at a category the new section does not have. Resetting it
+     * from an effect meant one render with an empty list before the correction
+     * landed, which read as the endpoints vanishing.
+     */
+    const effectiveCategory = categories.includes(activeCategory) ? activeCategory : ALL_CATEGORIES;
 
     const displayed = useMemo(
         () =>
-            activeCategory === ALL_CATEGORIES
+            effectiveCategory === ALL_CATEGORIES
                 ? sectionMembers
-                : sectionMembers.filter((e) => e.category === activeCategory),
-        [sectionMembers, activeCategory],
+                : sectionMembers.filter((e) => e.category === effectiveCategory),
+        [sectionMembers, effectiveCategory],
     );
 
     const sectionCounts = useMemo(() => {
@@ -545,7 +552,7 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                     variant="ghost"
                                     className={cn(
                                         'rounded-full px-5 h-10 text-xs font-semibold whitespace-nowrap transition-all',
-                                        activeCategory === category
+                                        effectiveCategory === category
                                             ? 'bg-background shadow-sm text-foreground'
                                             : 'text-muted-foreground hover:text-foreground',
                                     )}
@@ -578,14 +585,20 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                 <p className="text-muted-foreground">Coba pilih kategori atau bagian lain.</p>
                             </div>
                         ) : (
-                            <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
+                            /*
+                             * Rendered without a stagger animation on purpose. A per-item
+                             * delay meant the last of 39 Legacy endpoints only appeared
+                             * after ~2s, restarting on every section switch, so the list
+                             * spent most of its time invisible.
+                             */
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
                                 {displayed.map((endpoint) => {
                                     const state = yearFor(endpoint);
                                     const isSyncingThis = syncing === endpoint.endpoint;
                                     const current = progress[endpoint.endpoint];
 
                                     return (
-                                        <StaggerItem key={endpoint.endpoint}>
+                                        <div key={endpoint.endpoint}>
                                             <div
                                                 className={cn(
                                                     'group relative flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-[2rem] border bg-background/50 hover:bg-card hover:shadow-xl transition-all duration-300 gap-5 overflow-hidden',
@@ -683,10 +696,10 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                                     </Tooltip>
                                                 </div>
                                             </div>
-                                        </StaggerItem>
+                                        </div>
                                     );
                                 })}
-                            </StaggerContainer>
+                            </div>
                         )}
                     </ScrollArea>
 
