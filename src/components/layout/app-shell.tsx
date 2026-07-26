@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Database, Home, Settings, FolderSync, TrendingUp, Bell, User } from 'lucide-react';
+import { useState, useEffect, type ComponentType } from 'react';
+import { Database, Home, FolderSync, TrendingUp, Bell, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 interface NavItem {
     title: string;
     href: string;
-    icon: any;
+    icon: ComponentType<{ className?: string }>;
     value: string;
 }
 

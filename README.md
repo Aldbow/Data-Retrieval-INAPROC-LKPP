@@ -5,117 +5,207 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css)
 
-Aplikasi Web Modern untuk mengambil, menyinkronkan, mengelola, dan mengekspor data pengadaan barang dan jasa dari sistem INAPROC dan LKPP (Lembaga Kebijakan Pengadaan Barang/Jasa Pemerintah). 
+Aplikasi web untuk menelusuri, menyinkronkan, dan mengekspor data pengadaan barang/jasa
+pemerintah dari API INAPROC/LKPP (`data.inaproc.id`).
 
-Aplikasi ini didesain dengan antarmuka pengguna (UI) yang kaya menggunakan komponen Radix UI, Framer Motion, dan Tailwind CSS, serta performa tinggi untuk merender ribuan baris data menggunakan virtualisasi.
-
----
-
-## 🚀 Fitur Utama
-
-- **Data Browser Berkecepatan Tinggi**: Menampilkan ribuan data pengadaan secara mulus berkat implementasi `@tanstack/react-virtual` dan `@tanstack/react-query`.
-- **Sync Manager**: Fitur sinkronisasi data dari berbagai *endpoint* LKPP/INAPROC. Terdapat sinkronisasi tunggal (per tahun) dan rentang (*Range Sync*) untuk multi-tahun secara massal.
-- **Sistem Deduplikasi Data**: Mencegah adanya duplikasi rekaman data saat sinkronisasi menggunakan metode *unique key matching*.
-- **Penyimpanan Berbasis Excel**: Data yang disinkronkan akan disimpan ke dalam format file `.xlsx` menggunakan *library* `xlsx`. File metadata juga dibuat secara otomatis untuk melacak riwayat sinkronisasi.
-- **Ekspor Data Mudah**: Pengguna dapat dengan mudah mengekspor data hasil pencarian dan filter ke format Spreadsheet/CSV dengan satu klik.
-- **Dashboard Statistik Real-Time**: Melihat total nilai Pagu, jumlah total rekaman data, dan status API secara *real-time*.
+Mencakup **103 endpoint** dan menyimpan setiap dataset dalam **tiga format sekaligus**:
+`.json`, `.csv`, dan `.xlsx`.
 
 ---
 
-## 🏗️ Arsitektur Proyek
+## 🚀 Fitur
 
-Proyek ini menggunakan arsitektur **Next.js App Router**. Berjalan sepenuhnya sebagai aplikasi *Full-Stack* (Frontend React dan Backend Next.js API Routes).
-
-### Direktori Utama:
-- `src/app/page.tsx`: Halaman utama (*dashboard*) yang memuat *Browser*, *Sync Manager*, dan *Range Sync*.
-- `src/app/api/`: Berisi rute backend untuk *fetching* API LKPP, proses sinkronisasi, dan ekspor.
-  - `/api/inaproc`: Mengambil data (dengan fitur pagination/cursor).
-  - `/api/sync`: Memproses sinkronisasi dan menyimpan ke lokal.
-  - `/api/export`: Menghasilkan file unduhan Excel ke sisi klien.
-- `src/lib/`: Kode logika bisnis dan utilitas.
-  - `excel-service.ts`: Sistem manajemen operasi file Excel (Baca, Tulis, Deduplikasi).
-  - `sync-state.ts` & `drive-config.ts`: Konfigurasi *endpoint* dan manajemen *state* saat sinkronisasi.
-- `src/components/`: Komponen UI modular (Radix UI, Sheet, Badge, Loader, dll).
+| Fitur | Keterangan |
+|---|---|
+| **Browser** | Telusuri data live dari 103 endpoint, tabel tervirtualisasi, pencarian instan pada data termuat |
+| **Sync Manager** | Sinkronisasi per endpoint per tahun ke penyimpanan lokal; badge menunjukkan format mana yang sudah ada |
+| **Range Sync** | Sinkronisasi massal lintas tahun dan endpoint, dengan tombol hentikan |
+| **Tiga format** | JSON kanonik, CSV & XLSX diturunkan otomatis saat sync selesai |
+| **Ekspor** | Unduh sebagai JSON, CSV, atau XLSX; membaca file lokal bila sudah pernah disinkronkan |
+| **Deduplikasi** | Berbasis kunci alami per endpoint, dengan fallback hash stabil bila kunci tidak diketahui |
+| **Snapshot agregat** | Endpoint dashboard disimpan sebagai deret berstempel waktu (`_snapshot_at`), bukan ditimpa |
 
 ---
 
-## 🛠️ Teknologi yang Digunakan
+## 🗂️ Cakupan Endpoint
 
-- **Framework Utama**: [Next.js 16.1.1](https://nextjs.org/) (App Router)
-- **Library UI**: [React 19.2.3](https://react.dev/)
-- **Bahasa**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Komponen UI**: [Radix UI](https://www.radix-ui.com/) & [Lucide React](https://lucide.dev/) (Ikon)
-- **Animasi**: [Framer Motion](https://www.framer.com/motion/)
-- **Data Fetching & Caching**: [TanStack React Query](https://tanstack.com/query/latest)
-- **Virtualisasi Tabel**: [TanStack Virtual](https://tanstack.com/virtual/latest)
-- **Pemrosesan Excel**: [SheetJS (xlsx)](https://sheetjs.com/)
+Semua 103 endpoint terdaftar di [`src/lib/endpoint-registry.ts`](src/lib/endpoint-registry.ts),
+yang menjadi satu-satunya sumber kebenaran untuk pemetaan folder, kunci dedup, kelayakan sync,
+dan pengelompokan UI.
+
+| Kelompok | Kategori | Jumlah |
+|---|---|---:|
+| **V1 · Data** | RUP 9 · Tender 15 · E-Katalog 4 · E-Katalog Archive 5 | **33** |
+| **V1 · Dashboard** | Realisasi 8 · Profil 6 · RUP 6 · Afirmasi 5 · Pembayaran 5 · Umum 1 | **31** |
+| **Legacy** | Tender 20 · RUP 11 · E-Katalog Archive 5 · E-Katalog 2 · Bela 1 | **39** |
+| | | **103** |
+
+### Status endpoint
+
+Setiap endpoint punya `status` yang menentukan apakah bisa diambil:
+
+- **`ready`** (91) — bisa di-browse dan di-sync.
+- **`requires-id`** (8) — butuh identifier per record (`kd_penyedia`, `kd_komoditas`, …),
+  jadi tidak bisa ditarik massal.
+- **`needs-params`** (4) — API mengembalikan HTTP 400 untuk **semua** kombinasi parameter yang
+  sudah dicoba (12 kombinasi, plus POST → 405). Parameter wajibnya belum terdokumentasi:
+  - `/v1/dashboard/rup/detail`
+  - `/v1/dashboard/realisasi/detail/paket`
+  - `/v1/dashboard/realisasi/detail/jadwal`
+  - `/v1/dashboard/realisasi/filters/status-paket`
+
+  Endpoint ini tetap terdaftar dan ditandai di UI. Bila Anda menemukan parameter yang benar,
+  ubah `status` menjadi `'ready'` di registry.
+
+> **Catatan:** endpoint `/v1/dashboard/*/geo/*` mengembalikan `items: []` dengan HTTP 200
+> Success. Endpointnya sehat; datanya memang belum terisi untuk KLPD ini.
 
 ---
 
-## ⚙️ Cara Instalasi & Menjalankan Aplikasi
+## 📦 Format Penyimpanan
 
-Ikuti langkah-langkah berikut untuk menjalankan proyek ini di mesin lokal Anda:
+Setiap dataset menghasilkan file berdampingan dengan nama dasar yang sama:
 
-### 1. Persyaratan Sistem
-Pastikan Anda sudah menginstal:
-- **Node.js** (Versi 20.x atau terbaru disarankan)
-- **npm**, **yarn**, atau **pnpm** (Manajer paket Node)
-
-### 2. Kloning Repositori
-*(Jika menggunakan Git)*
-```bash
-git clone <url-repositori-anda>
-cd Data-Retrieval-INAPROC-LKPP
+```
+<INAPROC_DATA_PATH>/
+└── v1/rup/
+    ├── master-satker_2025.json        ← kanonik
+    ├── master-satker_2025.csv
+    ├── master-satker_2025.xlsx
+    └── master-satker_2025.meta.json   ← sidecar: kunci dedup, jumlah baris, waktu tulis
 ```
 
-### 3. Instalasi Dependensi
-Jalankan perintah ini di dalam direktori proyek untuk menginstal semua *library* yang dibutuhkan:
+Endpoint non-tahunan (data referensi, `/v1/dashboard/last-update`) tidak memakai akhiran tahun.
+Path dashboard bersarang mengikuti strukturnya:
+`/v1/dashboard/realisasi/geo/satker` → `v1/dashboard/realisasi/geo/satker_2025.*`
+
+**JSON adalah format kanonik**, CSV dan XLSX diturunkan darinya. Alasannya teknis:
+
+- XLSX punya batas keras **1.048.576 baris** — dataset RUP sudah mendekati skala itu.
+  Bila terlampaui, XLSX dipecah ke beberapa sheet sementara JSON dan CSV tetap utuh.
+- Parsing JSON jauh lebih murah daripada XLSX, dan file kanonik dibaca ulang setiap batch sync.
+- JSON mempertahankan `null` dan tipe numerik; CSV dan XLSX meratakannya.
+
+CSV dan XLSX dibuat ulang **saat sync selesai**, bukan setiap batch, agar biaya format tambahan
+dibayar sekali per sync. Bila keduanya tertinggal dari JSON, UI menandainya `Stale` dan
+menyediakan tombol regenerate (`POST /api/sync/materialize`).
+
+---
+
+## ⚙️ Instalasi
+
+### 1. Prasyarat
+- **Node.js 22.6+** (dibutuhkan untuk menjalankan test tanpa dependensi tambahan)
+- npm
+
+### 2. Instal dependensi
 ```bash
 npm install
-# atau
-yarn install
-# atau
-pnpm install
 ```
 
-### 4. Konfigurasi Lingkungan (Opsional)
-Jika aplikasi membutuhkan *Environment Variables* tertentu untuk API INAPROC (seperti URL dasar API atau *secret key*), buat file `.env.local` di root proyek:
-```env
-# Contoh isi .env.local
-# NEXT_PUBLIC_API_BASE_URL=https://api.inaproc.id/v1
-```
-*(Lewati langkah ini jika tidak ada kredensial khusus yang dibutuhkan)*
+### 3. Konfigurasi environment — **wajib**
 
-### 5. Menjalankan Server Pengembangan (Development)
-Untuk menjalankan aplikasi dalam mode *development*:
+Salin `.env.example` menjadi `.env.local` dan isi:
+
 ```bash
-npm run dev
-# atau
-yarn dev
-# atau
-pnpm dev
+cp .env.example .env.local
 ```
-Aplikasi akan berjalan di **[http://localhost:3000](http://localhost:3000)**. 
-Coba buka tautan tersebut di peramban (browser) Anda. Perubahan kode yang Anda buat akan langsung dimuat ulang secara otomatis (*hot-reload*).
 
-### 6. Build untuk Produksi (Production)
-Jika Anda ingin mencoba versi *build* siap rilis:
+| Variabel | Wajib | Keterangan |
+|---|:---:|---|
+| `JWT_TOKEN` | ✅ | Token bearer API INAPROC. **Tanpa ini semua route mengembalikan HTTP 500.** |
+| `INAPROC_DATA_PATH` | — | Root penyimpanan lokal. Default: `./DATA` di dalam proyek. |
+| `INAPROC_KODE_KLPD` | — | Kode KLPD yang dikirim sebagai `?kode_klpd=`. Default: `K34`. |
+| `INAPROC_API_BASE_URL` | — | Base URL API. Ubah hanya untuk mirror atau mock. |
+
+> **Migrasi:** variabel `SYNC_LOCATION` sudah dihapus. Dulu kode membacanya lebih dulu sehingga
+> `INAPROC_DATA_PATH` tidak pernah berlaku — akibatnya data bisa terpecah ke dua direktori.
+> Kini hanya `INAPROC_DATA_PATH` yang dipakai.
+
+### 4. Jalankan
 ```bash
-npm run build
-npm run start
+npm run dev        # development di http://localhost:3000
+npm run build      # build produksi
+npm run start      # jalankan hasil build
+```
+
+### 5. Verifikasi
+```bash
+npm run verify     # typecheck + lint + test
+npm test           # unit test
+npm run typecheck
+npm run lint
 ```
 
 ---
 
-## 📝 Penggunaan Dasar
+## 🔌 API Internal
 
-1. Buka aplikasi di `http://localhost:3000`.
-2. Di halaman utama, Anda akan disajikan tampilan **Browser**.
-3. Gunakan *dropdown* **Year** dan **Endpoint** di kanan atas untuk memfilter data.
-4. Jika data dari suatu endpoint belum tersedia, navigasikan ke menu **Sync Manager** (menggunakan tab di *sidebar* atau *navbar* terkait).
-5. Pada menu **Sync Manager**, pilih *endpoint* dan tahun yang diinginkan lalu klik **Start Sync**. Aplikasi akan mulai menarik data dari API LKPP/INAPROC dan menyimpannya di mesin lokal ke dalam file Excel.
-6. Anda bisa menggunakan **Range Sync** untuk menarik data dari rentang tahun secara sekaligus (Misal: 2020 hingga 2025).
+| Route | Metode | Fungsi |
+|---|---|---|
+| `/api/inaproc` | GET | Proxy browse. Params: `endpoint`, `year`, `cursor`, `limit` |
+| `/api/sync` | POST | Sinkronkan satu slice. Body: `endpoint`, `year`, `batchSize`, `maxPages`, `forceOverwrite` |
+| `/api/sync/status` | GET | Status semua endpoint, termasuk format mana yang ada di disk |
+| `/api/sync/materialize` | POST | Buat ulang CSV/XLSX dari JSON kanonik |
+| `/api/sync/schedule` | GET/POST/PUT | Simpan preferensi jadwal (belum ada eksekutor — lihat Batasan) |
+| `/api/export` | GET | Unduh. Params: `endpoint`, `year`, `format` (`json`\|`csv`\|`xlsx`), `search` |
+
+### Kontrak sinkronisasi
+
+Klien memanggil `POST /api/sync` berulang sampai `isComplete: true`. Respons menyertakan
+`stalled: boolean` — **bila `true`, klien harus berhenti**: request tidak memperoleh data apa pun
+dan tidak mencapai akhir, sehingga mengulanginya akan berputar tanpa henti.
 
 ---
-*Dibuat oleh Tim Pengembang internal untuk mempermudah analitik dan penarikan data LKPP Indonesia.*
+
+## 🏗️ Arsitektur
+
+```
+src/lib/
+├── endpoint-registry.ts   103 endpoint + metadata (sumber kebenaran tunggal)
+├── response-adapter.ts    Normalisasi 6 bentuk envelope API → { rows, cursor, hasMore }
+├── inaproc-client.ts      Pembangunan URL, auth, timeout, retry backoff
+├── drive-config.ts        Resolusi path + penjagaan traversal
+├── dataset-format.ts      Transformasi murni: identitas record, CSV, workbook
+├── storage-service.ts     IO atomik, dedup, materialisasi format turunan
+└── sync-state.ts          Cursor per endpoint/tahun, tulis terserialisasi
+```
+
+### Bentuk respons API
+
+API mengembalikan setidaknya enam envelope berbeda, dan **tidak konsisten bahkan dalam satu
+keluarga** (`/dashboard/rup/table` membungkus dengan `success`, `/dashboard/realisasi/table`
+tidak). Karena itu deteksi dilakukan secara struktural, bukan berdasarkan deklarasi:
+
+| Bentuk | Contoh endpoint |
+|---|---|
+| `[ {...} ]` | semua endpoint legacy |
+| `{ data: [...], meta }` | dataset v1 |
+| `{ data: { items: [] } }` | `/v1/dashboard/*/geo/*` |
+| `{ data: { rows: [] } }` | `/v1/dashboard/*/table` |
+| `{ data: {...} }` | `/v1/dashboard/*/summary`, `last-update` |
+| `{ data: { data: {...} } }` | `/v1/dashboard/profil/precomputed` |
+
+Paginasi dibaca dari `meta.cursor` dan `meta.has_more`.
+
+---
+
+## ⚠️ Batasan yang Diketahui
+
+- **Tidak ada autentikasi pada route API.** Aman untuk `localhost`. Sebelum di-deploy ke
+  jaringan manapun, tambahkan `middleware.ts` — tanpa itu siapa pun yang menjangkau URL-nya
+  bisa memakai token LKPP Anda dan memicu sync.
+- **Penjadwalan belum berjalan.** Konfigurasinya tersimpan, tetapi menjalankan sync terjadwal
+  butuh proses yang hidup lebih lama dari sebuah request. UI-nya disembunyikan sampai itu ada.
+- **Empat endpoint `needs-params`** (lihat di atas) belum bisa diambil.
+- **Ekspor dari API langsung dibatasi 200 halaman.** Bila tercapai, respons menyertakan header
+  `X-Export-Truncated: true` dan UI memperingatkan. Sinkronkan endpointnya untuk ekspor penuh
+  dari file lokal.
+- **Statistik "Nilai Baris Termuat"** hanya menjumlah baris yang sudah dimuat di layar, bukan
+  total dataset. Untuk agregat sebenarnya gunakan endpoint `/v1/dashboard/*/summary`.
+- **Presisi ID numerik panjang.** ID di atas 2^53 kehilangan presisi saat `JSON.parse`,
+  di luar kendali aplikasi ini.
+
+---
+
+*Dibuat untuk mempermudah analitik dan penarikan data pengadaan LKPP.*

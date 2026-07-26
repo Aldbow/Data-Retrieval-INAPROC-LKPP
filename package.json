@@ -1,12 +1,15 @@
 {
-  "name": "web-app",
-  "version": "0.1.0",
+  "name": "data-retrieval-inaproc-lkpp",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test \"src/lib/__tests__/*.test.ts\"",
+    "verify": "npm run typecheck && npm run lint && npm test"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

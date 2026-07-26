@@ -1,61 +1,74 @@
+/**
+ * Browse API
+ *
+ * Read-only proxy the Browser tab pages through. One handler serves every
+ * endpoint -- the per-endpoint routes that used to exist were byte-identical
+ * copies of this one with the path hardcoded.
+ */
 
 import { NextResponse } from 'next/server';
+import { getEndpoint } from '@/lib/endpoint-registry';
+import { isValidYear } from '@/lib/drive-config';
+import { fetchPage, ApiError } from '@/lib/inaproc-client';
 
-const BASE_URL = 'https://data.inaproc.id/api';
-const JWT_TOKEN = process.env.JWT_TOKEN;
+export const dynamic = 'force-dynamic';
+
+const MAX_LIMIT = 200;
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const endpoint = searchParams.get('endpoint') || '/v1/ekatalog-archive/paket-e-purchasing';
-    const year = searchParams.get('year') || '2024';
-    const limit = searchParams.get('limit') || '50';
+    const endpoint = searchParams.get('endpoint') ?? '';
+    const yearParam = searchParams.get('year');
     const cursor = searchParams.get('cursor');
+    const limit = Math.min(Number(searchParams.get('limit')) || 50, MAX_LIMIT);
 
-    if (!JWT_TOKEN) {
-        return NextResponse.json({ error: 'JWT_TOKEN not configured' }, { status: 500 });
+    const def = getEndpoint(endpoint);
+    if (!def) {
+        return NextResponse.json({ error: 'Unknown endpoint' }, { status: 400 });
     }
 
-    // Basic security check to ensure it hits the API and not some internal path
-    if (!endpoint.startsWith('/v1/') && !endpoint.startsWith('/legacy/')) {
-        return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
+    if (def.status !== 'ready') {
+        return NextResponse.json(
+            {
+                error:
+                    def.status === 'requires-id'
+                        ? 'Endpoint ini membutuhkan ID spesifik'
+                        : 'Endpoint ini membutuhkan parameter yang belum diketahui',
+                data: [],
+                has_more: false,
+            },
+            { status: 400 },
+        );
+    }
+
+    let year: string | undefined;
+    if (def.yearScoped) {
+        if (!isValidYear(yearParam)) {
+            return NextResponse.json({ error: 'Tahun tidak valid' }, { status: 400 });
+        }
+        year = yearParam;
     }
 
     try {
-        let apiUrl = `${BASE_URL}${endpoint}?limit=${limit}&tahun=${year}`;
+        const page = await fetchPage(endpoint, { year, cursor, limit });
 
-        // Add kode_klpd for ALL endpoints (both V1 and Legacy require it)
-        apiUrl += `&kode_klpd=K34`;
-
-        if (cursor) {
-            apiUrl += `&cursor=${encodeURIComponent(cursor)}`;
+        if (page.apiError) {
+            return NextResponse.json(
+                { error: page.apiError.message, code: page.apiError.code, data: [], has_more: false },
+                { status: 400 },
+            );
         }
 
-        const res = await fetch(apiUrl, {
-            headers: {
-                'Authorization': `Bearer ${JWT_TOKEN}`,
-                'Accept': 'application/json',
-            },
+        return NextResponse.json({
+            data: page.rows,
+            cursor: page.cursor,
+            has_more: page.hasMore,
+            meta: { count: page.rows.length, shape: page.detectedShape },
         });
-
-        if (!res.ok) {
-            const errorText = await res.text();
-            return NextResponse.json({ error: `API Error: ${res.status} - ${errorText}` }, { status: res.status });
-        }
-
-        const data = await res.json();
-
-        // Normalize Legacy API response (direct array) to standard format
-        if (Array.isArray(data)) {
-            return NextResponse.json({
-                data: data,
-                meta: { total: data.length },
-                has_more: false // Legacy typically returns all data at once
-            });
-        }
-
-        return NextResponse.json(data);
-
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error) {
+        // Upstream text is logged but not returned, so API internals stay server-side.
+        console.error(`[inaproc] ${endpoint} failed:`, error);
+        const status = error instanceof ApiError && error.status === 500 ? 500 : 502;
+        return NextResponse.json({ error: 'Gagal mengambil data dari API INAPROC' }, { status });
     }
 }

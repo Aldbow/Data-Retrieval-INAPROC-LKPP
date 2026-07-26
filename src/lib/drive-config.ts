@@ -1,110 +1,143 @@
 /**
- * Drive Configuration for INAPROC Data Storage
- * Defines base path and folder mapping for each endpoint category
+ * Storage Layout & Path Safety
+ *
+ * Resolves where a dataset lives on disk, in all three formats. Every path that
+ * incorporates caller-supplied input goes through `resolveWithin`, which
+ * guarantees the result stays under the configured base directory.
  */
 
 import * as path from 'path';
 
-// Base path can be overridden by environment variable
-export const DRIVE_CONFIG = {
-  basePath: process.env.SYNC_LOCATION || process.env.INAPROC_DATA_PATH || 'C:/Users/User/Documents/Aldiva/01 - DATABASE INAPROC LKPP',
-
-  // Mapping endpoint path prefix to folder name
-  folderMapping: {
-    // V1 mappings
-    '/v1/ekatalog-archive/': 'v1/ekatalog-archive',
-    '/v1/ekatalog/': 'v1/ekatalog',
-    '/v1/rup/': 'v1/rup',
-    '/v1/tender/': 'v1/tender',
-
-    // Legacy mappings
-    '/legacy/bela/': 'legacy/bela',
-    '/legacy/ekatalog-archive/': 'legacy/ekatalog-archive',
-    '/legacy/ekatalog/': 'legacy/ekatalog',
-    '/legacy/rup/': 'legacy/rup',
-    '/legacy/tender/': 'legacy/tender',
-  } as Record<string, string>,
-};
-
 /**
- * Get the folder path for a given endpoint
- * @param endpoint The API endpoint path
- * @returns The full folder path for storing data
+ * Root of the local data store.
+ *
+ * A single variable on purpose. There used to be two (`SYNC_LOCATION` and
+ * `INAPROC_DATA_PATH`) where the first won, so a value meant for the state file
+ * silently became the root for every dataset.
  */
-export function getFolderPath(endpoint: string): string {
-  for (const [prefix, folder] of Object.entries(DRIVE_CONFIG.folderMapping)) {
-    if (endpoint.startsWith(prefix)) {
-      return path.join(DRIVE_CONFIG.basePath, folder);
+export const DATA_ROOT: string = process.env.INAPROC_DATA_PATH
+    ? path.resolve(process.env.INAPROC_DATA_PATH)
+    : path.join(process.cwd(), 'DATA');
+
+/** KLPD (institution) code sent as ?kode_klpd=. K34 is the historical default. */
+export const KODE_KLPD: string = process.env.INAPROC_KODE_KLPD || 'K34';
+
+/** Base URL of the upstream API, shared by every route. */
+export const API_BASE_URL: string = process.env.INAPROC_API_BASE_URL || 'https://data.inaproc.id/api';
+
+export const SYNC_STATE_FILE: string = path.join(DATA_ROOT, 'sync-state.json');
+
+export type StorageFormat = 'json' | 'csv' | 'xlsx';
+
+export const STORAGE_FORMATS: readonly StorageFormat[] = ['json', 'csv', 'xlsx'] as const;
+
+/** Canonical format: what dedup reads and what the other two are derived from. */
+export const CANONICAL_FORMAT: StorageFormat = 'json';
+
+export class UnsafePathError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'UnsafePathError';
     }
-  }
-  // Default to 'other' folder if no mapping found
-  return path.join(DRIVE_CONFIG.basePath, 'other');
 }
 
 /**
- * Get the file name for a given endpoint and year
- * @param endpoint The API endpoint path
- * @param year The year of data
- * @returns The file name (without path)
+ * Join untrusted segments onto a base directory and refuse to escape it.
+ *
+ * `path.join` happily resolves '..', so a year of '../../../etc/passwd' used to
+ * turn into an arbitrary write (and, with forceOverwrite, an arbitrary delete).
  */
-export function getFileName(endpoint: string, year: string): string {
-  // Extract the last part of the endpoint as file name
-  const parts = endpoint.split('/');
-  const endpointName = parts[parts.length - 1];
-  return `${endpointName}_${year}.xlsx`;
+export function resolveWithin(base: string, ...segments: string[]): string {
+    const resolvedBase = path.resolve(base);
+    const candidate = path.resolve(resolvedBase, ...segments);
+    const relative = path.relative(resolvedBase, candidate);
+
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new UnsafePathError(`Resolved path escapes the data root: ${segments.join('/')}`);
+    }
+
+    return candidate;
+}
+
+const YEAR_PATTERN = /^\d{4}$/;
+
+/** Years the app is willing to address. Anything else is rejected outright. */
+export function isValidYear(year: unknown): year is string {
+    if (typeof year !== 'string' || !YEAR_PATTERN.test(year)) return false;
+    const n = Number(year);
+    return n >= 2000 && n <= 2100;
+}
+
+export function assertValidYear(year: unknown): asserts year is string {
+    if (!isValidYear(year)) {
+        throw new UnsafePathError(`Invalid year: expected 4 digits between 2000 and 2100`);
+    }
+}
+
+/** Path segments must be plain slugs; nothing that could redirect the path. */
+const SEGMENT_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
+function assertSafeSegments(endpoint: string): string[] {
+    const segments = endpoint.split('/').filter(Boolean);
+
+    if (segments.length < 2) {
+        throw new UnsafePathError(`Endpoint has too few path segments: ${endpoint}`);
+    }
+
+    for (const segment of segments) {
+        if (!SEGMENT_PATTERN.test(segment)) {
+            throw new UnsafePathError(`Endpoint contains an unsafe path segment: ${segment}`);
+        }
+    }
+
+    return segments;
+}
+
+export interface DatasetPaths {
+    /** Directory holding all three files. */
+    dir: string;
+    /** Shared filename without extension, e.g. 'master-satker_2025'. */
+    stem: string;
+    json: string;
+    csv: string;
+    xlsx: string;
+    /** Sidecar holding dedup keys and provenance for this dataset. */
+    meta: string;
 }
 
 /**
- * Get the full file path for a given endpoint and year
- * @param endpoint The API endpoint path
- * @param year The year of data
- * @returns The full file path
+ * Where a dataset's files live.
+ *
+ * Directory mirrors the endpoint path minus its last segment, which becomes the
+ * filename: '/v1/dashboard/realisasi/geo/satker' + 2025
+ *   -> <root>/v1/dashboard/realisasi/geo/satker_2025.{json,csv,xlsx}
+ *
+ * `year` is omitted for endpoints that are not year-scoped (reference data,
+ * /v1/dashboard/last-update).
  */
-export function getFilePath(endpoint: string, year: string): string {
-  const folder = getFolderPath(endpoint);
-  const fileName = getFileName(endpoint, year);
-  return path.join(folder, fileName);
+export function getDatasetPaths(endpoint: string, year?: string): DatasetPaths {
+    const segments = assertSafeSegments(endpoint);
+    const name = segments[segments.length - 1];
+    const folders = segments.slice(0, -1);
+
+    if (year !== undefined) {
+        assertValidYear(year);
+    }
+
+    const dir = resolveWithin(DATA_ROOT, ...folders);
+    const stem = year !== undefined ? `${name}_${year}` : name;
+
+    return {
+        dir,
+        stem,
+        json: resolveWithin(dir, `${stem}.json`),
+        csv: resolveWithin(dir, `${stem}.csv`),
+        xlsx: resolveWithin(dir, `${stem}.xlsx`),
+        meta: resolveWithin(dir, `${stem}.meta.json`),
+    };
 }
 
-/**
- * Get unique key fields for deduplication based on endpoint
- * Different endpoints may have different primary key fields
- */
-export function getUniqueKeyFields(endpoint: string): string[] {
-  // Map endpoints to their unique identifier fields
-  const keyMappings: Record<string, string[]> = {
-    'paket-e-purchasing': ['kd_paket', 'kode_rup||kd_rup'],
-    'instansi-satker': ['kode_klpd||kd_klpd', 'kode_satker||kd_satker'],
-    'komoditas-detail': ['id_komoditas', 'kode_produk'],
-    'penyedia-detail': ['kd_penyedia', 'npwp'],
-    'penyedia-distributor-detail': ['kd_penyedia', 'kd_distributor'],
-    'master-satker': ['kode_klpd||kd_klpd', 'kode_satker||kd_satker'],
-    'paket-anggaran-penyedia': ['kode_rup||kd_rup'],
-    'paket-anggaran-swakelola': ['kode_rup||kd_rup'],
-    'paket-penyedia-terumumkan': ['kode_rup||kd_rup'],
-    'paket-swakelola-terumumkan': ['kode_rup||kd_rup'],
-    'program-master': ['kode_program||kd_program'],
-    'jadwal-tahapan-non-tender': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kode_tahap'],
-    'jadwal-tahapan-tender': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kode_tahap'],
-    'non-tender-ekontrak-kontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
-    'non-tender-pengumuman': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
-    'non-tender-selesai': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
-    'pencatatan-non-tender': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
-    'pencatatan-non-tender-realisasi': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'id_realisasi'],
-    'pencatatan-swakelola': ['kode_rup||kd_rup'],
-    'pencatatan-swakelola-realisasi': ['kode_rup||kd_rup', 'id_realisasi'],
-    'pengumuman': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
-    'peserta-tender': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_penyedia'],
-    'tender-ekontrak-kontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
-    'tender-ekontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
-    'tender-selesai-nilai': ['kode_lelang||kd_lelang||kode_rup||kd_rup'],
-    'non-tender-ekontrak': ['kode_lelang||kd_lelang||kode_rup||kd_rup', 'kd_kontrak'],
-    'toko-daring-realisasi': ['kode_rup||kd_rup', 'id_realisasi'],
-  };
-
-  // Extract endpoint name from path
-  const parts = endpoint.split('/');
-  const endpointName = parts[parts.length - 1];
-
-  return keyMappings[endpointName] || ['kode_rup']; // Default to kode_rup
+/** Convenience accessor for a single format. */
+export function getDatasetPath(endpoint: string, year: string | undefined, format: StorageFormat): string {
+    return getDatasetPaths(endpoint, year)[format];
 }

@@ -1,91 +1,59 @@
 /**
- * Schedule API Route
- * Manages sync scheduling configuration
+ * Schedule API
+ *
+ * Stores the sync schedule preference.
+ *
+ * Note: nothing executes on this schedule yet. Running syncs on a timer needs a
+ * process that outlives a request, which a Next.js route handler is not, so the
+ * scheduling UI stays hidden until that exists. Keeping the config endpoint
+ * means the setting survives until then.
  */
 
 import { NextResponse } from 'next/server';
-import {
-    getScheduleConfig,
-    updateScheduleConfig,
-    isScheduledSyncDue,
-    getAllSyncStates,
-} from '@/lib/sync-state';
-import { ENDPOINTS } from '@/lib/constants';
+import { getScheduleConfig, updateScheduleConfig, isScheduledSyncDue } from '@/lib/sync-state';
+import { isKnownEndpoint } from '@/lib/endpoint-registry';
 
-// GET - Get current schedule config
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     try {
-        const schedule = await getScheduleConfig();
-        const isDue = await isScheduledSyncDue();
-
-        return NextResponse.json({
-            schedule,
-            isDue,
-        });
-    } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        );
+        const [schedule, isDue] = await Promise.all([getScheduleConfig(), isScheduledSyncDue()]);
+        return NextResponse.json({ schedule, isDue, executorAvailable: false });
+    } catch (error) {
+        console.error('[schedule] read failed:', error);
+        return NextResponse.json({ error: 'Gagal membaca konfigurasi jadwal' }, { status: 500 });
     }
 }
 
-// POST - Update schedule config
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { enabled, type, endpoints } = body;
+        const updates: Parameters<typeof updateScheduleConfig>[0] = {};
 
-        const updates: any = {};
+        if (typeof body.enabled === 'boolean') updates.enabled = body.enabled;
+        if (body.type === 'daily' || body.type === 'weekly') updates.type = body.type;
 
-        if (typeof enabled === 'boolean') {
-            updates.enabled = enabled;
-        }
-
-        if (type === 'daily' || type === 'weekly') {
-            updates.type = type;
-        }
-
-        if (Array.isArray(endpoints)) {
-            // Validate endpoints exist
-            const validEndpoints = endpoints.filter((ep: string) =>
-                ENDPOINTS.some((e) => e.value === ep)
+        if (Array.isArray(body.endpoints)) {
+            updates.endpoints = body.endpoints.filter(
+                (ep: unknown): ep is string => typeof ep === 'string' && isKnownEndpoint(ep),
             );
-            updates.endpoints = validEndpoints;
         }
 
         await updateScheduleConfig(updates);
-        const newSchedule = await getScheduleConfig();
-
-        return NextResponse.json({
-            success: true,
-            schedule: newSchedule,
-        });
-    } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        );
+        return NextResponse.json({ success: true, schedule: await getScheduleConfig() });
+    } catch (error) {
+        console.error('[schedule] update failed:', error);
+        return NextResponse.json({ error: 'Gagal memperbarui jadwal' }, { status: 500 });
     }
 }
 
-// PUT - Mark schedule as run (update lastRun)
+/** Records that a scheduled run happened. */
 export async function PUT() {
     try {
-        await updateScheduleConfig({
-            lastRun: new Date().toISOString(),
-        });
-
-        const schedule = await getScheduleConfig();
-
-        return NextResponse.json({
-            success: true,
-            schedule,
-        });
-    } catch (error: any) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        );
+        await updateScheduleConfig({ lastRun: new Date().toISOString() });
+        return NextResponse.json({ success: true, schedule: await getScheduleConfig() });
+    } catch (error) {
+        console.error('[schedule] mark-run failed:', error);
+        return NextResponse.json({ error: 'Gagal menandai jadwal' }, { status: 500 });
     }
 }

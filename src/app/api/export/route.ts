@@ -1,102 +1,159 @@
-import { NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+/**
+ * Export API
+ *
+ * Serves a dataset as json, csv or xlsx. Local files are preferred: the whole
+ * point of syncing is to avoid re-pulling data that is already on disk, and a
+ * local read is not subject to the upstream page cap.
+ *
+ * Falls back to fetching from the API for endpoints that have never been
+ * synced. That path is capped, and says so via `X-Export-Truncated` instead of
+ * silently returning a short file.
+ */
 
-const BASE_URL = 'https://data.inaproc.id/api';
+import { NextResponse } from 'next/server';
+import * as fs from 'fs/promises';
+import * as XLSX from 'xlsx';
+import { getEndpoint } from '@/lib/endpoint-registry';
+import { isValidYear, getDatasetPaths, type StorageFormat, STORAGE_FORMATS } from '@/lib/drive-config';
+import { readCanonical, toCsv, toWorkbook } from '@/lib/storage-service';
+import { fetchPage, ApiError } from '@/lib/inaproc-client';
+import type { DataRecord } from '@/lib/response-adapter';
+
+export const dynamic = 'force-dynamic';
+
+/** Cap for the live-fetch fallback. Reported to the caller when hit. */
+const MAX_LIVE_PAGES = 200;
+const LIVE_PAGE_SIZE = 100;
+
+const CONTENT_TYPES: Record<StorageFormat, string> = {
+    json: 'application/json; charset=utf-8',
+    csv: 'text/csv; charset=utf-8',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+function isStorageFormat(value: string): value is StorageFormat {
+    return (STORAGE_FORMATS as readonly string[]).includes(value);
+}
+
+/** Case-insensitive match across every value in the record. */
+function matchesSearch(record: DataRecord, needle: string): boolean {
+    for (const value of Object.values(record)) {
+        if (value === null || value === undefined) continue;
+        if (String(value).toLowerCase().includes(needle)) return true;
+    }
+    return false;
+}
+
+function serialize(records: DataRecord[], format: StorageFormat, sheetLabel: string): Buffer | string {
+    if (format === 'json') return JSON.stringify(records, null, 2);
+    if (format === 'csv') return toCsv(records);
+    return XLSX.write(toWorkbook(records, sheetLabel), { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const endpoint = searchParams.get('endpoint') || '/v1/ekatalog-archive/paket-e-purchasing';
-    const year = searchParams.get('year') || '2024';
-    const search = searchParams.get('search');
-    const JWT_TOKEN = process.env.JWT_TOKEN;
+    const endpoint = searchParams.get('endpoint') ?? '';
+    const yearParam = searchParams.get('year');
+    const search = (searchParams.get('search') ?? '').trim().toLowerCase();
+    const formatParam = searchParams.get('format') ?? 'xlsx';
 
-    if (!JWT_TOKEN) {
-        return NextResponse.json({ error: 'JWT_TOKEN not configured' }, { status: 500 });
+    if (!isStorageFormat(formatParam)) {
+        return NextResponse.json({ error: 'Format harus json, csv, atau xlsx' }, { status: 400 });
+    }
+    const format: StorageFormat = formatParam;
+
+    const def = getEndpoint(endpoint);
+    if (!def) {
+        return NextResponse.json({ error: 'Unknown endpoint' }, { status: 400 });
     }
 
-    if (!endpoint.startsWith('/v1/') && !endpoint.startsWith('/legacy/')) {
-        return NextResponse.json({ error: 'Invalid endpoint' }, { status: 400 });
+    let year: string | undefined;
+    if (def.yearScoped) {
+        if (!isValidYear(yearParam)) {
+            return NextResponse.json({ error: 'Tahun tidak valid' }, { status: 400 });
+        }
+        year = yearParam;
     }
+
+    const name = endpoint.split('/').filter(Boolean).pop() ?? 'export';
+    const filename = `INAPROC_${name}${year ? `_${year}` : ''}_${new Date().toISOString().slice(0, 10)}.${format}`;
+    const sheetLabel = year ? `Data ${year}` : 'Data';
 
     try {
-        let allExportData: any[] = [];
-        let currentCursor: string | null = null;
-        let keepFetching = true;
-        let pageCount = 0;
+        const paths = getDatasetPaths(endpoint, year);
+        const localExists = await fs
+            .stat(paths.json)
+            .then(() => true)
+            .catch(() => false);
 
-        const baseQuery = new URLSearchParams({
-            tahun: year,
-            limit: '100',
-            kode_klpd: 'K34'
-        });
+        let records: DataRecord[];
+        let source: 'local' | 'api';
+        let truncated = false;
 
-        // The live API might accept search? We'll pass it if it exists.
-        // Wait, the frontend passed it to our proxy, did our proxy pass it?
-        // Inaproc API doesn't seem to natively support generic 'search' on all endpoints, but we will pass it if needed.
+        if (localExists) {
+            records = await readCanonical(endpoint, year);
+            source = 'local';
 
-        while (keepFetching) {
-            let apiUrl = `${BASE_URL}${endpoint}?${baseQuery.toString()}`;
-            if (currentCursor) {
-                apiUrl += `&cursor=${encodeURIComponent(currentCursor)}`;
-            }
-
-            const res = await fetch(apiUrl, {
-                headers: {
-                    'Authorization': `Bearer ${JWT_TOKEN}`,
-                    'Accept': 'application/json',
-                },
-            });
-
-            if (!res.ok) {
-                const errorText = await res.text();
-                throw new Error(`API Error: ${res.status} - ${errorText}`);
-            }
-
-            const result = await res.json();
-            
-            // Handle Legacy array format
-            if (Array.isArray(result)) {
-                allExportData = result;
-                keepFetching = false;
-                break;
-            }
-
-            const pageData = result.data || [];
-
-            if (pageData.length === 0) {
-                keepFetching = false;
-            } else {
-                allExportData = [...allExportData, ...pageData];
-                const nextCursor = result.cursor || (result.meta && result.meta.cursor);
-                if (nextCursor && result.has_more !== false) {
-                    currentCursor = nextCursor;
-                } else {
-                    keepFetching = false;
+            // Serve the stored file verbatim when no filtering is needed and
+            // the requested format is already materialised on disk.
+            if (!search) {
+                const stored = await fs.readFile(paths[format]).catch(() => null);
+                if (stored) {
+                    return new NextResponse(new Uint8Array(stored), {
+                        headers: {
+                            'Content-Type': CONTENT_TYPES[format],
+                            'Content-Disposition': `attachment; filename="${filename}"`,
+                            'X-Export-Source': 'local',
+                            'X-Export-Rows': String(records.length),
+                        },
+                    });
                 }
             }
+        } else {
+            if (def.status !== 'ready') {
+                return NextResponse.json(
+                    { error: 'Endpoint ini belum bisa diambil dan belum pernah disinkronkan' },
+                    { status: 400 },
+                );
+            }
 
-            // Safety limit (e.g., max 20,000 rows, or 200 pages) to prevent server OOM
-            if (pageCount >= 200) break;
-            pageCount++;
+            records = [];
+            source = 'api';
+            let cursor: string | null = null;
+
+            for (let page = 0; page < MAX_LIVE_PAGES; page++) {
+                const result = await fetchPage(endpoint, {
+                    year,
+                    cursor,
+                    limit: def.paginated ? LIVE_PAGE_SIZE : undefined,
+                });
+
+                if (result.apiError || result.rows.length === 0) break;
+
+                records.push(...result.rows);
+                cursor = result.cursor;
+
+                if (!result.hasMore) break;
+                if (page === MAX_LIVE_PAGES - 1) truncated = true;
+            }
         }
 
-        const worksheet = XLSX.utils.json_to_sheet(allExportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, `Data ${year}`);
-        
-        // Write to buffer
-        const buf = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const filtered = search ? records.filter((r) => matchesSearch(r, search)) : records;
+        const payload = serialize(filtered, format, sheetLabel);
+        const body = typeof payload === 'string' ? payload : new Uint8Array(payload);
 
-        return new NextResponse(buf, {
-            status: 200,
+        return new NextResponse(body, {
             headers: {
-                'Content-Disposition': `attachment; filename="INAPROC_Data_${year}.xlsx"`,
-                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Type': CONTENT_TYPES[format],
+                'Content-Disposition': `attachment; filename="${filename}"`,
+                'X-Export-Source': source,
+                'X-Export-Rows': String(filtered.length),
+                'X-Export-Truncated': String(truncated),
             },
         });
-
-    } catch (error: any) {
-        console.error("Export generation failed:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error) {
+        console.error(`[export] ${endpoint} failed:`, error);
+        const status = error instanceof ApiError && error.status === 500 ? 500 : 502;
+        return NextResponse.json({ error: 'Gagal membuat file ekspor' }, { status });
     }
 }

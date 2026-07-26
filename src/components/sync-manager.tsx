@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,39 +20,80 @@ import {
     Clock,
     FolderOpen,
     Zap,
-    PlayCircle,
-    PauseCircle,
     Server,
     Database,
-    FileJson
+    FileJson,
+    FileSpreadsheet,
+    FileText,
+    Ban,
+    RotateCw,
+    Square,
 } from 'lucide-react';
-import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
-import { FadeIn, StaggerContainer, StaggerItem, ScaleOnHover } from './ui/motion-primitives';
+import { FadeIn, StaggerContainer, StaggerItem } from './ui/motion-primitives';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-interface SyncState {
-    lastCursor: string | null;
+type StorageFormat = 'json' | 'csv' | 'xlsx';
+
+interface FormatInfo {
+    exists: boolean;
+    path: string;
+    size: number;
+}
+
+interface YearStatus {
+    year: string;
     lastSyncDate: string;
     totalRecords: number;
-    filePath: string;
+    incomplete: boolean;
+    formats: Record<StorageFormat, FormatInfo>;
+    derivedStale: boolean;
 }
 
 interface EndpointStatus {
     endpoint: string;
     label: string;
-    years: { year: string; state: SyncState }[];
+    generation: 'v1' | 'legacy';
+    group: 'data' | 'dashboard';
+    category: string;
+    kind: 'dataset' | 'aggregate' | 'reference';
+    status: 'ready' | 'requires-id' | 'needs-params';
+    yearScoped: boolean;
+    years: YearStatus[];
     lastSynced: string | null;
 }
 
-interface ScheduleConfig {
-    enabled: boolean;
-    type: 'daily' | 'weekly';
-    lastRun: string | null;
-    endpoints: string[];
+interface StatusResponse {
+    endpoints: EndpointStatus[];
+    basePath: string;
+    kodeKlpd: string;
 }
+
+interface SyncProgress {
+    status: 'syncing' | 'complete' | 'error' | 'skipped';
+    records: number;
+    message?: string;
+}
+
+/** Top-level sections, mirroring the registry's tree. */
+const SECTIONS = [
+    { id: 'v1-data', title: 'V1 · Data', match: (e: EndpointStatus) => e.generation === 'v1' && e.group === 'data' },
+    { id: 'v1-dashboard', title: 'V1 · Dashboard', match: (e: EndpointStatus) => e.group === 'dashboard' },
+    { id: 'legacy', title: 'Legacy', match: (e: EndpointStatus) => e.generation === 'legacy' },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]['id'];
+
+const ALL_CATEGORIES = 'Semua';
+const FORMAT_ORDER: StorageFormat[] = ['json', 'csv', 'xlsx'];
+const FORMAT_ICON: Record<StorageFormat, typeof FileJson> = {
+    json: FileJson,
+    csv: FileText,
+    xlsx: FileSpreadsheet,
+};
 
 interface SyncManagerProps {
     year: string;
@@ -63,188 +104,352 @@ interface SyncManagerProps {
 export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerProps) {
     const [syncing, setSyncing] = useState<string | null>(null);
     const [batchSyncing, setBatchSyncing] = useState(false);
-    const [syncProgress, setSyncProgress] = useState<Record<string, { status: string; records: number }>>({});
+    const [progress, setProgress] = useState<Record<string, SyncProgress>>({});
+    const [activeSection, setActiveSection] = useState<SectionId>('v1-data');
+    const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
 
-    const [activeVersionTab, setActiveVersionTab] = useState<'V1' | 'Legacy'>('V1');
-    const [activeCategoryTab, setActiveCategoryTab] = useState<string>('Semua');
+    /**
+     * Cancellation flag for batch sync.
+     *
+     * A ref, not state: the batch loop reads this on every iteration, and a
+     * state variable captured in the closure keeps its render-time value. The
+     * previous `if (!batchSyncing) break` read `false` on the first iteration
+     * and aborted the batch immediately, so the button did nothing at all.
+     */
+    const cancelBatch = useRef(false);
 
-    const { data: statusData, isLoading, refetch, isRefetching } = useQuery({
+    const { data, isLoading, refetch, isRefetching } = useQuery<StatusResponse>({
         queryKey: ['sync-status'],
         queryFn: async () => {
-            const res = await fetch(`/api/sync/status?verify=false`);
-            if (!res.ok) throw new Error("Failed to fetch sync status");
-            const data = await res.json();
-            return data as { endpoints: EndpointStatus[]; schedule: ScheduleConfig | null; basePath: string };
+            const res = await fetch('/api/sync/status?verify=false');
+            if (!res.ok) throw new Error('Failed to fetch sync status');
+            return res.json();
         },
-        refetchInterval: 10000 // Poll every 10 seconds
+        refetchInterval: 15_000,
     });
 
-    const statuses = statusData?.endpoints || [];
-    const schedule = statusData?.schedule || null;
-    const basePath = statusData?.basePath || '';
+    const statuses = useMemo(() => data?.endpoints ?? [], [data]);
+    const basePath = data?.basePath ?? '';
+    const kodeKlpd = data?.kodeKlpd ?? '';
     const loading = isLoading || isRefetching;
 
-    const fetchStatus = useCallback(async (verify = false) => {
-        if (verify) {
-            const res = await fetch(`/api/sync/status?verify=true`);
-            if (res.ok) await refetch();
-        } else {
+    const refresh = useCallback(
+        async (verify = false) => {
+            if (verify) await fetch('/api/sync/status?verify=true').catch(() => undefined);
             await refetch();
-        }
-    }, [refetch]);
+        },
+        [refetch],
+    );
 
     useEffect(() => {
-        setSyncProgress({});
+        setProgress({});
     }, [year]);
 
-    const syncEndpoint = async (endpoint: string) => {
-        setSyncing(endpoint);
-        setSyncProgress((prev) => ({
-            ...prev,
-            [endpoint]: { status: 'syncing', records: 0 },
-        }));
+    // ---- grouping -------------------------------------------------------
+
+    const sectionMembers = useMemo(() => {
+        const section = SECTIONS.find((s) => s.id === activeSection)!;
+        return statuses.filter(section.match);
+    }, [statuses, activeSection]);
+
+    const categories = useMemo(() => {
+        const names = Array.from(new Set(sectionMembers.map((e) => e.category))).sort((a, b) =>
+            a.localeCompare(b),
+        );
+        return [ALL_CATEGORIES, ...names];
+    }, [sectionMembers]);
+
+    useEffect(() => {
+        if (!categories.includes(activeCategory)) setActiveCategory(ALL_CATEGORIES);
+    }, [categories, activeCategory]);
+
+    const displayed = useMemo(
+        () =>
+            activeCategory === ALL_CATEGORIES
+                ? sectionMembers
+                : sectionMembers.filter((e) => e.category === activeCategory),
+        [sectionMembers, activeCategory],
+    );
+
+    const sectionCounts = useMemo(() => {
+        const counts = {} as Record<SectionId, number>;
+        for (const section of SECTIONS) {
+            counts[section.id] = statuses.filter(section.match).length;
+        }
+        return counts;
+    }, [statuses]);
+
+    // ---- sync -----------------------------------------------------------
+
+    /**
+     * Drive one endpoint to completion, one request per page batch.
+     *
+     * Bails out when the server reports `stalled` -- that means the request
+     * made no progress and repeating it would loop forever.
+     */
+    const syncEndpoint = useCallback(
+        async (endpoint: EndpointStatus, options: { silent?: boolean } = {}) => {
+            if (endpoint.status !== 'ready') {
+                setProgress((p) => ({
+                    ...p,
+                    [endpoint.endpoint]: { status: 'skipped', records: 0, message: 'Butuh parameter tambahan' },
+                }));
+                return;
+            }
+
+            setSyncing(endpoint.endpoint);
+            setProgress((p) => ({ ...p, [endpoint.endpoint]: { status: 'syncing', records: 0 } }));
+
+            try {
+                let isComplete = false;
+                let guard = 0;
+
+                while (!isComplete && guard < 500 && !cancelBatch.current) {
+                    guard++;
+
+                    const res = await fetch('/api/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            endpoint: endpoint.endpoint,
+                            year: endpoint.yearScoped ? year : undefined,
+                            batchSize: 100,
+                            maxPages: 50,
+                        }),
+                    });
+
+                    const result = await res.json();
+                    if (!res.ok || !result.success) {
+                        throw new Error(result.error || `HTTP ${res.status}`);
+                    }
+
+                    isComplete = result.isComplete;
+
+                    setProgress((p) => ({
+                        ...p,
+                        [endpoint.endpoint]: {
+                            status: isComplete ? 'complete' : 'syncing',
+                            records: result.totalRecords,
+                            message: result.warning,
+                        },
+                    }));
+
+                    if (result.stalled) {
+                        throw new Error(result.warning || 'Sync berhenti tanpa kemajuan');
+                    }
+
+                    if (!isComplete) await new Promise((r) => setTimeout(r, 400));
+                }
+
+                if (!options.silent) {
+                    await refresh(true);
+                    toast.success(`${endpoint.label}: sinkronisasi selesai`);
+                }
+                onSyncComplete?.();
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Kesalahan tidak diketahui';
+                setProgress((p) => ({
+                    ...p,
+                    [endpoint.endpoint]: { status: 'error', records: 0, message },
+                }));
+                if (!options.silent) toast.error(`${endpoint.label}: ${message}`);
+            } finally {
+                setSyncing(null);
+            }
+        },
+        [year, refresh, onSyncComplete],
+    );
+
+    /** Sync exactly the endpoints currently visible, matching the button label. */
+    const batchSync = useCallback(async () => {
+        const targets = displayed.filter((e) => e.status === 'ready');
+
+        if (targets.length === 0) {
+            toast.info('Tidak ada endpoint yang bisa disinkronkan di tampilan ini');
+            return;
+        }
+
+        cancelBatch.current = false;
+        setBatchSyncing(true);
+        toast.info(`Memulai batch sync untuk ${targets.length} endpoint`);
 
         try {
-            let isComplete = false;
-            while (!isComplete) {
-                const res = await fetch('/api/sync', {
+            for (const target of targets) {
+                if (cancelBatch.current) break;
+                await syncEndpoint(target, { silent: true });
+            }
+        } finally {
+            setBatchSyncing(false);
+            await refresh(true);
+            toast[cancelBatch.current ? 'info' : 'success'](
+                cancelBatch.current ? 'Batch sync dihentikan' : 'Batch sync selesai',
+            );
+            cancelBatch.current = false;
+        }
+    }, [displayed, syncEndpoint, refresh]);
+
+    /** Rebuild csv/xlsx from the canonical json without re-fetching. */
+    const materialize = useCallback(
+        async (endpoint: EndpointStatus) => {
+            const id = toast.loading(`Membuat ulang CSV/XLSX untuk ${endpoint.label}`);
+            try {
+                const res = await fetch('/api/sync/materialize', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        endpoint,
-                        year,
-                        batchSize: 100,
-                        maxPages: 50,
+                        endpoint: endpoint.endpoint,
+                        year: endpoint.yearScoped ? year : undefined,
                     }),
                 });
-
                 const result = await res.json();
-                if (!result.success) throw new Error(result.error || 'Sync failed');
+                if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
 
-                isComplete = result.isComplete;
-                setSyncProgress((prev) => ({
-                    ...prev,
-                    [endpoint]: {
-                        status: isComplete ? 'complete' : 'syncing',
-                        records: result.totalRecords,
-                    },
-                }));
-
-                if (!isComplete) await new Promise((r) => setTimeout(r, 500));
+                toast.success(`${endpoint.label}: ${result.rowCount.toLocaleString('id-ID')} baris ditulis`, { id });
+                await refresh();
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Gagal membuat ulang file', { id });
             }
+        },
+        [year, refresh],
+    );
 
-            if (!batchSyncing) {
-                await fetchStatus(true);
-                toast.success(`Sync completed!`);
-            }
-            onSyncComplete?.();
-        } catch (error: any) {
-            setSyncProgress((prev) => ({
-                ...prev,
-                [endpoint]: { status: 'error', records: 0 },
-            }));
-            toast.error(`Sync failed`);
-        } finally {
-            setSyncing(null);
-        }
+    // ---- rendering ------------------------------------------------------
+
+    const formatDate = (value: string | null) => {
+        if (!value) return 'Belum pernah';
+        return new Date(value).toLocaleString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
     };
 
-    const batchSync = async () => {
-        setBatchSyncing(true);
-        const syncableEndpoints = getSyncableEndpoints();
-        toast.info("Starting batch sync...");
-        for (const ep of syncableEndpoints) {
-            if (!batchSyncing) break;
-            await syncEndpoint(ep.value);
+    const yearFor = (endpoint: EndpointStatus): YearStatus | undefined =>
+        endpoint.yearScoped
+            ? endpoint.years.find((y) => y.year === year)
+            : endpoint.years.find((y) => y.year === '_all');
+
+    const renderBadge = (endpoint: EndpointStatus) => {
+        const current = progress[endpoint.endpoint];
+
+        if (current?.status === 'syncing') {
+            return (
+                <Badge variant="secondary" className="gap-1 bg-blue-500/10 text-blue-500 animate-pulse border-blue-500/20 rounded-full font-medium">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Syncing
+                </Badge>
+            );
         }
-        setBatchSyncing(false);
-        await fetchStatus(true);
+        if (current?.status === 'error') {
+            return (
+                <Badge variant="destructive" className="gap-1 rounded-full" title={current.message}>
+                    <AlertCircle className="h-3 w-3" /> Error
+                </Badge>
+            );
+        }
+        if (endpoint.status !== 'ready') {
+            return (
+                <Badge
+                    variant="outline"
+                    className="gap-1.5 rounded-full border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 font-medium"
+                    title={
+                        endpoint.status === 'requires-id'
+                            ? 'Endpoint ini butuh ID spesifik (kd_penyedia, kd_komoditas, ...)'
+                            : 'API menolak semua kombinasi parameter yang diketahui (HTTP 400)'
+                    }
+                >
+                    <Ban className="h-3 w-3" />
+                    {endpoint.status === 'requires-id' ? 'Butuh ID' : 'Butuh Parameter'}
+                </Badge>
+            );
+        }
+
+        const state = yearFor(endpoint);
+        if (state) {
+            return (
+                <Badge
+                    suppressHydrationWarning
+                    variant="outline"
+                    className={cn(
+                        'gap-1.5 rounded-full font-mono',
+                        state.incomplete
+                            ? 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5'
+                            : 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5',
+                    )}
+                >
+                    <CheckCircle className="h-3 w-3" />
+                    {state.incomplete ? 'Sebagian' : 'Siap'} ({state.totalRecords.toLocaleString('id-ID')})
+                </Badge>
+            );
+        }
+
+        return (
+            <Badge variant="outline" className="text-muted-foreground/60 border-dashed rounded-full font-medium border-muted-foreground/30">
+                Perlu Sync
+            </Badge>
+        );
     };
 
-    const updateSchedule = async (updates: Partial<ScheduleConfig>) => {
-        try {
-            const res = await fetch('/api/sync/schedule', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updates),
-            });
-            await res.json();
-            refetch();
-            toast.success("Schedule updated");
-        } catch (error) {
-            toast.error("Failed to update schedule");
-        }
+    /** Which of the three formats exist on disk for the selected year. */
+    const renderFormats = (endpoint: EndpointStatus) => {
+        const state = yearFor(endpoint);
+        if (!state) return null;
+
+        return (
+            <div className="flex items-center gap-1.5">
+                {FORMAT_ORDER.map((format) => {
+                    const info = state.formats[format];
+                    const Icon = FORMAT_ICON[format];
+                    return (
+                        <Tooltip key={format}>
+                            <TooltipTrigger asChild>
+                                <span
+                                    className={cn(
+                                        'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase border transition-colors',
+                                        info?.exists
+                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                            : 'bg-muted/40 text-muted-foreground/50 border-dashed border-muted-foreground/20',
+                                    )}
+                                >
+                                    <Icon className="h-3 w-3" />
+                                    {format}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="rounded-xl font-medium">
+                                {info?.exists
+                                    ? `${format.toUpperCase()} · ${(info.size / 1024).toLocaleString('id-ID', { maximumFractionDigits: 0 })} KB`
+                                    : `${format.toUpperCase()} belum dibuat`}
+                            </TooltipContent>
+                        </Tooltip>
+                    );
+                })}
+                {state.derivedStale && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                <AlertCircle className="h-3 w-3" /> Stale
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="rounded-xl font-medium">
+                            CSV/XLSX lebih lama dari JSON kanonik — klik ikon regenerate
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+        );
     };
-
-    const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return 'Never synced';
-        const date = new Date(dateStr);
-        return date.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    };
-
-    const getStatusBadge = (endpoint: string, status: EndpointStatus) => {
-        const progress = syncProgress[endpoint];
-        if (progress?.status === 'syncing') {
-            return <Badge variant="secondary" className="gap-1 bg-blue-500/10 text-blue-500 animate-pulse border-blue-500/20 rounded-full font-medium"><Loader2 className="h-3 w-3 animate-spin" /> Syncing</Badge>;
-        }
-        if (progress?.status === 'complete') {
-            return <Badge variant="secondary" className="gap-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-full font-medium"><CheckCircle className="h-3 w-3" /> Complete</Badge>;
-        }
-        if (progress?.status === 'error') {
-            return <Badge variant="destructive" className="gap-1 rounded-full"><AlertCircle className="h-3 w-3" /> Error</Badge>;
-        }
-        const yearState = status.years.find((y) => y.year === year);
-        if (yearState) {
-            return <Badge suppressHydrationWarning variant="outline" className="gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 rounded-full font-mono"><CheckCircle className="h-3 w-3" /> Ready ({yearState.state.totalRecords.toLocaleString()})</Badge>;
-        }
-        return <Badge variant="outline" className="text-muted-foreground/60 border-dashed rounded-full font-medium border-muted-foreground/30">Needs Sync</Badge>;
-    };
-
-    const groupedStatuses = useMemo(() => {
-        return statuses.reduce((acc: Record<string, Record<string, EndpointStatus[]>>, status: EndpointStatus) => {
-            const version = status.endpoint.startsWith('/legacy') ? 'Legacy' : 'V1';
-            let category = 'Lainnya';
-            if (status.endpoint.includes('ekatalog')) category = 'E-Katalog';
-            else if (status.endpoint.includes('rup')) category = 'RUP';
-            else if (status.endpoint.includes('tender')) category = 'Tender';
-            else if (status.endpoint.includes('bela')) category = 'Bela Pengadaan';
-
-            if (!acc[version]) acc[version] = { 'Semua': [] };
-            if (!acc[version][category]) acc[version][category] = [];
-
-            acc[version][category].push(status);
-            acc[version]['Semua'].push(status);
-
-            return acc;
-        }, {} as Record<string, Record<string, EndpointStatus[]>>);
-    }, [statuses]);
-
-    const categoriesForVersion = useMemo(() => {
-        if (!groupedStatuses[activeVersionTab]) return ['Semua'];
-        return Object.keys(groupedStatuses[activeVersionTab]).sort((a, b) => a === 'Semua' ? -1 : b === 'Semua' ? 1 : a.localeCompare(b));
-    }, [groupedStatuses, activeVersionTab]);
-
-    useEffect(() => {
-        if (!categoriesForVersion.includes(activeCategoryTab)) {
-            setActiveCategoryTab('Semua');
-        }
-    }, [activeVersionTab, categoriesForVersion, activeCategoryTab]);
-
-    const displayedEndpoints = useMemo(() => {
-        if (!groupedStatuses[activeVersionTab]) return [];
-        return groupedStatuses[activeVersionTab][activeCategoryTab] || [];
-    }, [groupedStatuses, activeVersionTab, activeCategoryTab]);
 
     return (
-        <FadeIn className="space-y-6">
-            {/* Top Control Bar (Bento style) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Hero / Controls */}
-                <div className="lg:col-span-2 relative overflow-hidden rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-xl shadow-xl shadow-primary/5 p-6 sm:p-10 flex flex-col justify-between group hover:border-primary/20 transition-all">
-                    <div className="absolute -top-12 -right-12 p-8 opacity-[0.03] group-hover:opacity-10 transition-opacity pointer-events-none transform group-hover:scale-110 duration-700">
+        <TooltipProvider>
+            <FadeIn className="space-y-6">
+                {/* Control bar */}
+                <div className="relative overflow-hidden rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-xl shadow-xl shadow-primary/5 p-6 sm:p-10">
+                    <div className="absolute -top-12 -right-12 p-8 opacity-[0.03] pointer-events-none">
                         <Server className="w-64 h-64 text-primary" />
                     </div>
-                    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+
+                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
                                 <div className="p-2.5 rounded-2xl bg-primary/10 text-primary shadow-inner">
@@ -252,205 +457,257 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                                 </div>
                                 <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Sync Configuration</h3>
                             </div>
-                            <p className="text-muted-foreground font-medium text-sm ml-1">Download and synchronize master data locally</p>
+                            <p className="text-muted-foreground font-medium text-sm ml-1">
+                                Setiap dataset disimpan sebagai JSON, CSV, dan XLSX sekaligus
+                            </p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center p-1.5 bg-secondary/50 rounded-full border border-border/50 shadow-sm">
                                 <Select value={year} onValueChange={onYearChange}>
-                                    <SelectTrigger className="w-[110px] h-10 border-none bg-transparent shadow-none focus:ring-0 font-bold text-foreground">
-                                        <SelectValue placeholder="Year" />
+                                    <SelectTrigger className="w-[110px] h-10 border-none bg-transparent shadow-none focus:ring-0 font-bold">
+                                        <SelectValue placeholder="Tahun" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-2xl shadow-xl">
                                         {Array.from({ length: 2027 - 2018 + 1 }, (_, i) => 2027 - i).map((y) => (
-                                            <SelectItem key={y} value={String(y)} className="rounded-xl font-medium focus:bg-primary/10 focus:text-primary cursor-pointer">{y}</SelectItem>
+                                            <SelectItem key={y} value={String(y)} className="rounded-xl font-medium cursor-pointer">
+                                                {y}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <Button variant="outline" size="icon" onClick={() => fetchStatus(true)} disabled={loading} className="h-14 w-14 rounded-full border-border/50 bg-background/50 shadow-sm hover:bg-secondary transition-all group/btn">
-                                <RefreshCw className={cn("h-5 w-5 text-muted-foreground group-hover/btn:text-primary transition-colors", loading && "animate-spin text-primary")} />
-                            </Button>
-                        </div>
-                    </div>
 
-                    <div className="relative z-10 mt-auto">
-                        <Button size="lg" onClick={batchSync} disabled={batchSyncing || syncing !== null} className="w-full sm:w-auto h-14 px-8 rounded-full gap-3 shadow-xl shadow-primary/25 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground text-base font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]">
-                            {batchSyncing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
-                            {batchSyncing ? 'Batch Syncing in Progress...' : 'Sync All Visible Endpoints'}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Schedule Widget */}
-                <div className="relative overflow-hidden rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-xl shadow-xl shadow-primary/5 p-6 sm:p-8 flex flex-col justify-between group hover:border-blue-500/20 transition-all">
-                    <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-10 transition-opacity pointer-events-none transform group-hover:-rotate-12 duration-700">
-                        <Clock className="w-48 h-48 text-blue-500" />
-                    </div>
-                    <div className="flex items-center justify-between mb-6 relative z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-500 shadow-inner">
-                                <Clock className="w-6 h-6" />
-                            </div>
-                            <h3 className="font-extrabold tracking-tight text-xl">Automation</h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {schedule?.enabled && <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span></span>}
-                        </div>
-                    </div>
-
-                    <div className="space-y-5 relative z-10">
-                        <div>
-                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 ml-1">Frequency</p>
-                            <Select value={schedule?.type || 'daily'} onValueChange={(value) => updateSchedule({ type: value as 'daily' | 'weekly' })}>
-                                <SelectTrigger className="w-full h-12 rounded-2xl border-border/50 bg-background/50 hover:bg-background shadow-sm text-sm font-semibold focus:ring-4 focus:ring-blue-500/10">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-2xl shadow-xl">
-                                    <SelectItem value="daily" className="rounded-xl cursor-pointer">Daily Execution</SelectItem>
-                                    <SelectItem value="weekly" className="rounded-xl cursor-pointer">Weekly Execution</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 ml-1">Last Run</p>
-                            <div suppressHydrationWarning className="font-mono text-sm bg-background/50 px-4 py-3 rounded-2xl border border-border/50 truncate font-medium text-foreground/80 shadow-inner">
-                                {schedule?.lastRun ? formatDate(schedule.lastRun) : 'Never executed'}
-                            </div>
-                        </div>
-
-                        <Button variant={schedule?.enabled ? 'secondary' : 'outline'} onClick={() => updateSchedule({ enabled: !schedule?.enabled })} className={cn("w-full h-12 rounded-full font-bold transition-all border-border/50", schedule?.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border-transparent shadow-sm" : "hover:bg-secondary")}>
-                            {schedule?.enabled ? <><PauseCircle className="h-4 w-4 mr-2" /> Pause Schedule</> : <><PlayCircle className="h-4 w-4 mr-2" /> Enable Schedule</>}
-                        </Button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Interactive Grid Area */}
-            <div className="rounded-[2.5rem] border border-border/50 bg-card/30 backdrop-blur-xl shadow-xl overflow-hidden p-6 sm:p-10">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-border/50 pb-8">
-                    <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-2xl border border-border/50 w-max shadow-inner">
-                        {(['V1', 'Legacy'] as const).map(v => (
                             <Button
-                                key={v}
-                                variant="ghost"
-                                className={cn("rounded-[0.85rem] px-8 h-12 text-sm font-bold transition-all", activeVersionTab === v ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}
-                                onClick={() => setActiveVersionTab(v)}
+                                variant="outline"
+                                size="icon"
+                                onClick={() => refresh(true)}
+                                disabled={loading}
+                                className="h-14 w-14 rounded-full border-border/50 bg-background/50 shadow-sm hover:bg-secondary"
                             >
-                                {v} API
+                                <RefreshCw className={cn('h-5 w-5 text-muted-foreground', loading && 'animate-spin text-primary')} />
                             </Button>
-                        ))}
-                    </div>
 
-                    <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-full border border-border/50 overflow-x-auto w-full md:w-auto scrollbar-none shadow-inner">
-                        {categoriesForVersion.map(cat => (
-                            <Button
-                                key={cat}
-                                variant="ghost"
-                                className={cn("rounded-full px-5 h-10 text-xs font-semibold whitespace-nowrap transition-all", activeCategoryTab === cat ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
-                                onClick={() => setActiveCategoryTab(cat)}
-                            >
-                                {cat}
-                                <Badge variant="secondary" className="ml-2 bg-secondary/80 text-[10px] h-5 px-1.5 font-bold">{groupedStatuses[activeVersionTab]?.[cat]?.length || 0}</Badge>
-                            </Button>
-                        ))}
+                            {batchSyncing ? (
+                                <Button
+                                    size="lg"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        cancelBatch.current = true;
+                                    }}
+                                    className="h-14 px-8 rounded-full gap-3 font-semibold"
+                                >
+                                    <Square className="h-4 w-4" /> Hentikan Batch
+                                </Button>
+                            ) : (
+                                <Button
+                                    size="lg"
+                                    onClick={batchSync}
+                                    disabled={syncing !== null}
+                                    className="h-14 px-8 rounded-full gap-3 shadow-xl shadow-primary/25 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground text-base font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                >
+                                    <Zap className="h-5 w-5" />
+                                    Sync {displayed.filter((e) => e.status === 'ready').length} Endpoint Terlihat
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <ScrollArea className="h-[550px] pr-4">
-                    {loading && statuses.length === 0 ? (
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 w-full rounded-3xl" />)}
+                {/* Endpoint grid */}
+                <div className="rounded-[2.5rem] border border-border/50 bg-card/30 backdrop-blur-xl shadow-xl overflow-hidden p-6 sm:p-10">
+                    <div className="flex flex-col gap-6 mb-8 border-b border-border/50 pb-8">
+                        <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-2xl border border-border/50 w-max shadow-inner overflow-x-auto max-w-full">
+                            {SECTIONS.map((section) => (
+                                <Button
+                                    key={section.id}
+                                    variant="ghost"
+                                    className={cn(
+                                        'rounded-[0.85rem] px-6 h-12 text-sm font-bold whitespace-nowrap transition-all',
+                                        activeSection === section.id
+                                            ? 'bg-background shadow-sm text-primary'
+                                            : 'text-muted-foreground hover:text-foreground',
+                                    )}
+                                    onClick={() => setActiveSection(section.id)}
+                                >
+                                    {section.title}
+                                    <Badge variant="secondary" className="ml-2 bg-secondary/80 text-[10px] h-5 px-1.5 font-bold">
+                                        {sectionCounts[section.id] ?? 0}
+                                    </Badge>
+                                </Button>
+                            ))}
                         </div>
-                    ) : displayedEndpoints.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-[400px] text-center gap-4">
-                            <div className="h-24 w-24 bg-muted/30 rounded-[2rem] flex items-center justify-center">
-                                <Database className="h-10 w-10 text-muted-foreground opacity-50" />
+
+                        <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-full border border-border/50 overflow-x-auto w-full scrollbar-none shadow-inner">
+                            {categories.map((category) => (
+                                <Button
+                                    key={category}
+                                    variant="ghost"
+                                    className={cn(
+                                        'rounded-full px-5 h-10 text-xs font-semibold whitespace-nowrap transition-all',
+                                        activeCategory === category
+                                            ? 'bg-background shadow-sm text-foreground'
+                                            : 'text-muted-foreground hover:text-foreground',
+                                    )}
+                                    onClick={() => setActiveCategory(category)}
+                                >
+                                    {category}
+                                    <Badge variant="secondary" className="ml-2 bg-secondary/80 text-[10px] h-5 px-1.5 font-bold">
+                                        {category === ALL_CATEGORIES
+                                            ? sectionMembers.length
+                                            : sectionMembers.filter((e) => e.category === category).length}
+                                    </Badge>
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <ScrollArea className="h-[550px] pr-4">
+                        {loading && statuses.length === 0 ? (
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <Skeleton key={i} className="h-32 w-full rounded-3xl" />
+                                ))}
                             </div>
-                            <h3 className="text-xl font-bold text-foreground">No endpoints found</h3>
-                            <p className="text-muted-foreground">Try refreshing the status or selecting another category.</p>
-                        </div>
-                    ) : (
-                        <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
-                            {displayedEndpoints.map((status: EndpointStatus) => {
-                                const yearState = status.years.find((y: any) => y.year === year);
-                                const progress = syncProgress[status.endpoint];
-                                const isSyncingThis = syncing === status.endpoint;
+                        ) : displayed.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-[400px] text-center gap-4">
+                                <div className="h-24 w-24 bg-muted/30 rounded-[2rem] flex items-center justify-center">
+                                    <Database className="h-10 w-10 text-muted-foreground opacity-50" />
+                                </div>
+                                <h3 className="text-xl font-bold">Tidak ada endpoint</h3>
+                                <p className="text-muted-foreground">Coba pilih kategori atau bagian lain.</p>
+                            </div>
+                        ) : (
+                            <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-4">
+                                {displayed.map((endpoint) => {
+                                    const state = yearFor(endpoint);
+                                    const isSyncingThis = syncing === endpoint.endpoint;
+                                    const current = progress[endpoint.endpoint];
 
-                                return (
-                                    <StaggerItem key={status.endpoint}>
-                                        <div className={cn(
-                                            "group relative flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-[2rem] border bg-background/50 hover:bg-card hover:shadow-xl transition-all duration-300 gap-5 overflow-hidden",
-                                            isSyncingThis ? "border-primary/50 shadow-lg shadow-primary/10 ring-1 ring-primary/20 bg-primary/5" : "border-border/50 shadow-sm hover:border-primary/20"
-                                        )}>
-                                            {/* Glowing accent border top */}
-                                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/50 transition-all duration-500" />
-
-                                            <div className="flex-1 min-w-0 z-10">
-                                                <div className="flex flex-wrap items-center gap-3 mb-2">
-                                                    <div className="h-8 w-8 bg-secondary/80 rounded-xl flex items-center justify-center border border-border/50 shadow-inner text-foreground/70">
-                                                        <FileJson className="h-4 w-4" />
-                                                    </div>
-                                                    <span className="font-extrabold text-sm truncate text-foreground/90">
-                                                        {status.label}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex flex-col gap-2 mt-3 pl-[44px]">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        {getStatusBadge(status.endpoint, status)}
-                                                    </div>
-                                                    <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono text-muted-foreground/80 mt-1">
-                                                        {yearState && (
-                                                            <span suppressHydrationWarning className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
-                                                                <Clock className="h-3 w-3" />
-                                                                {formatDate(yearState.state.lastSyncDate)}
-                                                            </span>
+                                    return (
+                                        <StaggerItem key={endpoint.endpoint}>
+                                            <div
+                                                className={cn(
+                                                    'group relative flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-[2rem] border bg-background/50 hover:bg-card hover:shadow-xl transition-all duration-300 gap-5 overflow-hidden',
+                                                    isSyncingThis
+                                                        ? 'border-primary/50 shadow-lg shadow-primary/10 ring-1 ring-primary/20 bg-primary/5'
+                                                        : 'border-border/50 shadow-sm hover:border-primary/20',
+                                                )}
+                                            >
+                                                <div className="flex-1 min-w-0 z-10">
+                                                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                                                        <div className="h-8 w-8 bg-secondary/80 rounded-xl flex items-center justify-center border border-border/50 shadow-inner text-foreground/70">
+                                                            <FileJson className="h-4 w-4" />
+                                                        </div>
+                                                        <span className="font-extrabold text-sm truncate text-foreground/90">
+                                                            {endpoint.label}
+                                                        </span>
+                                                        {endpoint.kind === 'aggregate' && (
+                                                            <Badge variant="secondary" className="text-[9px] uppercase font-bold rounded-md px-1.5">
+                                                                Snapshot
+                                                            </Badge>
+                                                        )}
+                                                        {!endpoint.yearScoped && (
+                                                            <Badge variant="secondary" className="text-[9px] uppercase font-bold rounded-md px-1.5">
+                                                                Non-tahunan
+                                                            </Badge>
                                                         )}
                                                     </div>
 
-                                                    {progress?.records > 0 && (
-                                                        <div suppressHydrationWarning className="mt-1 text-[10px] font-bold uppercase tracking-widest text-primary/80 bg-primary/10 px-2 py-1 rounded-md inline-block w-max">
-                                                            Processed {progress.records.toLocaleString()} records...
+                                                    <div className="flex flex-col gap-2 mt-3 sm:pl-[44px]">
+                                                        <div className="flex flex-wrap items-center gap-2">{renderBadge(endpoint)}</div>
+
+                                                        {renderFormats(endpoint)}
+
+                                                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-muted-foreground/80 mt-1">
+                                                            {state && (
+                                                                <span suppressHydrationWarning className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
+                                                                    <Clock className="h-3 w-3" />
+                                                                    {formatDate(state.lastSyncDate)}
+                                                                </span>
+                                                            )}
+                                                            {current?.message && (
+                                                                <span className="text-amber-600 dark:text-amber-400 truncate max-w-[280px]" title={current.message}>
+                                                                    {current.message}
+                                                                </span>
+                                                            )}
                                                         </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="z-10 flex shrink-0 sm:self-center gap-2 mt-2 sm:mt-0">
+                                                    {state?.derivedStale && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    onClick={() => materialize(endpoint)}
+                                                                    className="h-14 w-14 rounded-full border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/15"
+                                                                >
+                                                                    <RotateCw className="h-5 w-5" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="rounded-xl font-medium">
+                                                                Buat ulang CSV/XLSX dari JSON
+                                                            </TooltipContent>
+                                                        </Tooltip>
                                                     )}
+
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant={isSyncingThis ? 'secondary' : 'outline'}
+                                                                size="icon"
+                                                                onClick={() => syncEndpoint(endpoint)}
+                                                                disabled={syncing !== null || batchSyncing || endpoint.status !== 'ready'}
+                                                                className={cn(
+                                                                    'h-14 w-14 rounded-full border-border/50 bg-background hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all shadow-sm disabled:opacity-40',
+                                                                    isSyncingThis && 'bg-primary/10 text-primary border-primary/20',
+                                                                )}
+                                                            >
+                                                                {isSyncingThis ? (
+                                                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                                                ) : endpoint.status !== 'ready' ? (
+                                                                    <Ban className="h-5 w-5" />
+                                                                ) : (
+                                                                    <Download className="h-5 w-5" />
+                                                                )}
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent className="rounded-xl font-medium">
+                                                            {endpoint.status === 'ready'
+                                                                ? 'Mulai sinkronisasi'
+                                                                : 'Endpoint ini belum bisa disinkronkan'}
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 </div>
                                             </div>
+                                        </StaggerItem>
+                                    );
+                                })}
+                            </StaggerContainer>
+                        )}
+                    </ScrollArea>
 
-                                            <div className="z-10 flex shrink-0 sm:self-center mt-2 sm:mt-0">
-                                                <Button
-                                                    variant={isSyncingThis ? "secondary" : "outline"}
-                                                    size="icon"
-                                                    onClick={() => syncEndpoint(status.endpoint)}
-                                                    disabled={syncing !== null || batchSyncing}
-                                                    className={cn(
-                                                        "h-14 w-14 rounded-full border-border/50 bg-background hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all shadow-sm group-hover:shadow-md",
-                                                        isSyncingThis && "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:text-primary"
-                                                    )}
-                                                >
-                                                    {isSyncingThis ? (
-                                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                                    ) : (
-                                                        <Download className="h-5 w-5" />
-                                                    )}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </StaggerItem>
-                                );
-                            })}
-                        </StaggerContainer>
-                    )}
-                </ScrollArea>
-
-                <div className="mt-6 pt-6 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-muted-foreground/70">
-                    <div className="flex items-center gap-2.5 bg-background/50 px-4 py-2 rounded-xl border border-border/50 shadow-inner">
-                        <FolderOpen className="h-4 w-4 text-primary/60" />
-                        <span>Storage Root: <strong className="text-foreground/80 ml-1">{basePath || 'Pending...'}</strong></span>
+                    <div className="mt-6 pt-6 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-muted-foreground/70">
+                        <div className="flex items-center gap-2.5 bg-background/50 px-4 py-2 rounded-xl border border-border/50 shadow-inner">
+                            <FolderOpen className="h-4 w-4 text-primary/60" />
+                            <span>
+                                Storage Root: <strong className="text-foreground/80 ml-1">{basePath || 'Memuat...'}</strong>
+                            </span>
+                        </div>
+                        {kodeKlpd && (
+                            <div className="flex items-center gap-2.5 bg-background/50 px-4 py-2 rounded-xl border border-border/50 shadow-inner">
+                                <Database className="h-4 w-4 text-primary/60" />
+                                <span>
+                                    KLPD: <strong className="text-foreground/80 ml-1">{kodeKlpd}</strong>
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
-        </FadeIn>
+            </FadeIn>
+        </TooltipProvider>
     );
 }
