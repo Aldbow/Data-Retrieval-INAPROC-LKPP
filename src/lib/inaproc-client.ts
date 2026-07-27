@@ -6,7 +6,7 @@
  * of assembling URLs themselves.
  */
 
-import { API_BASE_URL, KODE_KLPD } from './drive-config';
+import { API_BASE_URL, KLPD_JENIS, KODE_KLPD } from './drive-config';
 import { getEndpoint, isKnownEndpoint } from './endpoint-registry';
 import { adaptResponse, type AdaptedResponse } from './response-adapter';
 
@@ -52,6 +52,10 @@ export function buildApiUrl(endpoint: string, params: RequestParams = {}): strin
 
     if (def.yearScoped && params.year) query.set('tahun', params.year);
     if (def.klpdScoped) query.set('kode_klpd', KODE_KLPD);
+    if (def.jenisScoped) query.set('jenis', KLPD_JENIS);
+    // Same code namespace as kode_klpd -- dashboard/*/geo/instansi reports our
+    // institution as 'K34' too -- so it is derived rather than configured twice.
+    if (def.instansiScoped) query.set('instansi', KODE_KLPD);
     if (params.limit) query.set('limit', String(params.limit));
     if (def.paginated && params.cursor) query.set('cursor', params.cursor);
 

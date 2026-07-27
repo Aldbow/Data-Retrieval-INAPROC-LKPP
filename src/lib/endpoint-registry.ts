@@ -59,6 +59,21 @@ export interface EndpointDef {
     yearScoped: boolean;
     /** Sends ?kode_klpd=. */
     klpdScoped: boolean;
+    /**
+     * Sends ?jenis=, the KLPD type. Dashboard endpoints only: without it
+     * geo/eselon and geo/satker return zero items, and the other families
+     * aggregate across every kind of institution at once.
+     */
+    jenisScoped: boolean;
+    /**
+     * Sends ?instansi=, the institution filter the dashboard actually honours.
+     *
+     * ?kode_klpd= does NOT narrow a dashboard response -- probed 2026-07-27, the
+     * payload is byte-identical with and without it, and any code other than our
+     * own returns nothing, so it reads as an authorisation check on the token.
+     * Without ?instansi= the dashboard reports national totals.
+     */
+    instansiScoped: boolean;
     /** Supports cursor pagination. Legacy endpoints return everything at once. */
     paginated: boolean;
     /**
@@ -87,6 +102,8 @@ const v1Dataset = (uniqueKeys?: string[]): EndpointTraits => ({
     status: 'ready',
     yearScoped: true,
     klpdScoped: true,
+    jenisScoped: false,
+    instansiScoped: false,
     paginated: true,
     uniqueKeys,
 });
@@ -98,6 +115,8 @@ const legacyDataset = (uniqueKeys?: string[]): EndpointTraits => ({
     status: 'ready',
     yearScoped: true,
     klpdScoped: true,
+    jenisScoped: false,
+    instansiScoped: false,
     paginated: false,
     uniqueKeys,
 });
@@ -109,6 +128,8 @@ const detailEndpoint = (generation: Generation): EndpointTraits => ({
     status: 'requires-id',
     yearScoped: true,
     klpdScoped: true,
+    jenisScoped: false,
+    instansiScoped: false,
     paginated: generation === 'v1',
 });
 
@@ -119,6 +140,8 @@ const dashboardAggregate = (shape: ResponseShape, status: EndpointStatus = 'read
     status,
     yearScoped: true,
     klpdScoped: true,
+    jenisScoped: true,
+    instansiScoped: true,
     paginated: false,
 });
 
@@ -215,9 +238,12 @@ function dashboardFamily(slug: string, label: string, extra: EndpointDef[] = [])
 
 const V1_DASHBOARD: EndpointDef[] = [
     def('/v1/dashboard/last-update', 'Last Update', 'v1', 'dashboard', 'Umum', {
+        // A global freshness timestamp: not scoped to a year or an institution.
         ...dashboardAggregate('object'),
         yearScoped: false,
         klpdScoped: false,
+        jenisScoped: false,
+        instansiScoped: false,
     }),
     ...dashboardFamily('rup', 'RUP', [
         def('/v1/dashboard/rup/detail', 'RUP: Detail', 'v1', 'dashboard', 'RUP', dashboardAggregate('rows', 'needs-params')),

@@ -52,6 +52,40 @@ describe('registry contents', () => {
         }
     });
 
+    // ?jenis= selects the KLPD type. Probed 2026-07-27: dropping it makes
+    // geo/eselon and geo/satker return zero items, and makes summary/table
+    // aggregate across ministries, agencies and regions at once.
+    it('sends jenis on dashboard endpoints and nowhere else', () => {
+        for (const ep of ENDPOINTS) {
+            const expected = ep.group === 'dashboard' && ep.value !== '/v1/dashboard/last-update';
+            assert.equal(ep.jenisScoped, expected, ep.value);
+        }
+    });
+
+    // last-update is a global freshness timestamp; scoping it to one KLPD type
+    // would silently narrow what the UI reports as "data as of".
+    it('leaves last-update unscoped', () => {
+        const ep = getEndpoint('/v1/dashboard/last-update')!;
+        assert.equal(ep.yearScoped, false);
+        assert.equal(ep.klpdScoped, false);
+        assert.equal(ep.jenisScoped, false);
+    });
+
+    it('never sends jenis without kode_klpd, which the API pairs it with', () => {
+        for (const ep of ENDPOINTS) {
+            if (ep.jenisScoped) assert.equal(ep.klpdScoped, true, ep.value);
+        }
+    });
+
+    // ?instansi= is what actually narrows a dashboard response to one
+    // institution; ?kode_klpd= only authorises. Sending jenis without instansi
+    // would report every ministry at once, which is what this guards against.
+    it('sends instansi wherever it sends jenis', () => {
+        for (const ep of ENDPOINTS) {
+            assert.equal(ep.instansiScoped, ep.jenisScoped, ep.value);
+        }
+    });
+
     it('gives every endpoint a non-empty label and category', () => {
         for (const ep of ENDPOINTS) {
             assert.ok(ep.label.trim().length > 0, ep.value);

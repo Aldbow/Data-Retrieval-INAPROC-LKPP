@@ -22,6 +22,15 @@ export const DATA_ROOT: string = process.env.INAPROC_DATA_PATH
 /** KLPD (institution) code sent as ?kode_klpd=. K34 is the historical default. */
 export const KODE_KLPD: string = process.env.INAPROC_KODE_KLPD || 'K34';
 
+/**
+ * KLPD type sent as ?jenis= on dashboard endpoints.
+ *
+ * 1=Kementerian 2=Lembaga 3=Provinsi 4=Kabupaten 5=Kota. Must describe the same
+ * institution as KODE_KLPD -- the dashboard returns the wrong population when
+ * the two disagree, and geo/* comes back empty without it entirely.
+ */
+export const KLPD_JENIS: string = process.env.INAPROC_KLPD_JENIS || '1';
+
 /** Base URL of the upstream API, shared by every route. */
 export const API_BASE_URL: string = process.env.INAPROC_API_BASE_URL || 'https://data.inaproc.id/api';
 
