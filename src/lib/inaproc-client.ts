@@ -35,6 +35,8 @@ export class ApiError extends Error {
 export interface RequestParams {
     year?: string;
     cursor?: string | null;
+    /** Row offset for offset-paginated endpoints. Ignored by the other styles. */
+    offset?: number;
     limit?: number;
 }
 
@@ -57,7 +59,8 @@ export function buildApiUrl(endpoint: string, params: RequestParams = {}): strin
     // institution as 'K34' too -- so it is derived rather than configured twice.
     if (def.instansiScoped) query.set('instansi', KODE_KLPD);
     if (params.limit) query.set('limit', String(params.limit));
-    if (def.paginated && params.cursor) query.set('cursor', params.cursor);
+    if (def.pagination === 'cursor' && params.cursor) query.set('cursor', params.cursor);
+    if (def.pagination === 'offset' && params.offset) query.set('offset', String(params.offset));
 
     const suffix = query.toString();
     return suffix ? `${API_BASE_URL}${endpoint}?${suffix}` : `${API_BASE_URL}${endpoint}`;

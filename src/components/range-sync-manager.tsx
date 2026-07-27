@@ -150,7 +150,7 @@ export function RangeSyncManager() {
                     endpoint: endpoint.label,
                     year,
                     newRecords: totalNew,
-                    duplicatesOrTotal: endpoint.paginated ? totalSkipped : totalRecords,
+                    duplicatesOrTotal: endpoint.pagination === 'none' ? totalRecords : totalSkipped,
                     status: 'success',
                 });
             } catch (error) {

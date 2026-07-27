@@ -44,6 +44,9 @@ export type ResponseShape =
  */
 export type EndpointStatus = 'ready' | 'requires-id' | 'needs-params';
 
+/** @see EndpointDef.pagination */
+export type PaginationStyle = 'none' | 'cursor' | 'offset';
+
 export interface EndpointDef {
     /** Path appended to the API base URL, e.g. '/v1/rup/master-satker'. */
     value: string;
@@ -74,8 +77,16 @@ export interface EndpointDef {
      * Without ?instansi= the dashboard reports national totals.
      */
     instansiScoped: boolean;
-    /** Supports cursor pagination. Legacy endpoints return everything at once. */
-    paginated: boolean;
+    /**
+     * How to ask for the next page:
+     * - none   : the response is the whole dataset (legacy, summary, geo)
+     * - cursor : follow `meta.cursor` until `has_more` is false (v1 datasets)
+     * - offset : advance ?offset= by the page size (dashboard tables)
+     *
+     * Dashboard tables send no cursor and no meta at all, so treating them as
+     * cursor-paginated silently stopped every sync after a single page.
+     */
+    pagination: PaginationStyle;
     /**
      * Fields forming the natural key, used to skip records already stored.
      * '||' means "first of these that is present", bridging v1/legacy column
@@ -104,7 +115,7 @@ const v1Dataset = (uniqueKeys?: string[]): EndpointTraits => ({
     klpdScoped: true,
     jenisScoped: false,
     instansiScoped: false,
-    paginated: true,
+    pagination: 'cursor',
     uniqueKeys,
 });
 
@@ -117,7 +128,7 @@ const legacyDataset = (uniqueKeys?: string[]): EndpointTraits => ({
     klpdScoped: true,
     jenisScoped: false,
     instansiScoped: false,
-    paginated: false,
+    pagination: 'none',
     uniqueKeys,
 });
 
@@ -130,7 +141,7 @@ const detailEndpoint = (generation: Generation): EndpointTraits => ({
     klpdScoped: true,
     jenisScoped: false,
     instansiScoped: false,
-    paginated: generation === 'v1',
+    pagination: generation === 'v1' ? 'cursor' : 'none',
 });
 
 /** Dashboard aggregate: a handful of totals, captured as a timestamped snapshot. */
@@ -142,7 +153,7 @@ const dashboardAggregate = (shape: ResponseShape, status: EndpointStatus = 'read
     klpdScoped: true,
     jenisScoped: true,
     instansiScoped: true,
-    paginated: false,
+    pagination: 'none',
 });
 
 function def(
@@ -227,7 +238,7 @@ function dashboardFamily(slug: string, label: string, extra: EndpointDef[] = [])
         def(`${base}/table`, `${label}: Table`, 'v1', 'dashboard', label, {
             ...dashboardAggregate('rows'),
             kind: 'dataset',
-            paginated: true,
+            pagination: 'offset',
         }),
         def(`${base}/geo/eselon`, `${label}: Geo Eselon`, 'v1', 'dashboard', label, dashboardAggregate('items')),
         def(`${base}/geo/instansi`, `${label}: Geo Instansi`, 'v1', 'dashboard', label, dashboardAggregate('items')),

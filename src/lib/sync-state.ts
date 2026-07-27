@@ -17,6 +17,12 @@ import { isKnownEndpoint } from './endpoint-registry';
 
 export interface EndpointSyncState {
     lastCursor: string | null;
+    /**
+     * Resume point for offset-paginated endpoints, the counterpart of
+     * lastCursor. Absent on state written before offset paging existed, which
+     * reads as 0 -- a full re-fetch, deduplicated on write.
+     */
+    lastOffset?: number;
     lastSyncDate: string;
     totalRecords: number;
     /** Set when the last attempt ended without reaching the end of the data. */

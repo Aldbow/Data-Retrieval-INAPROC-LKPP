@@ -120,20 +120,29 @@ export async function GET(request: Request) {
             records = [];
             source = 'api';
             let cursor: string | null = null;
+            let offset = 0;
 
             for (let page = 0; page < MAX_LIVE_PAGES; page++) {
                 const result = await fetchPage(endpoint, {
                     year,
                     cursor,
-                    limit: def.paginated ? LIVE_PAGE_SIZE : undefined,
+                    offset,
+                    limit: def.pagination === 'none' ? undefined : LIVE_PAGE_SIZE,
                 });
 
                 if (result.apiError || result.rows.length === 0) break;
 
                 records.push(...result.rows);
-                cursor = result.cursor;
 
-                if (!result.hasMore) break;
+                if (def.pagination === 'offset') {
+                    // No cursor, no has_more: a short page is the end.
+                    offset += result.rows.length;
+                    if (result.rows.length < LIVE_PAGE_SIZE) break;
+                } else {
+                    cursor = result.cursor;
+                    if (!result.hasMore) break;
+                }
+
                 if (page === MAX_LIVE_PAGES - 1) truncated = true;
             }
         }

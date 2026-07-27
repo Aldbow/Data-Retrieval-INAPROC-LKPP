@@ -114,8 +114,10 @@ export async function POST(request: Request) {
         const previous = forceOverwrite ? null : await getSyncState(endpointValue, stateKey);
         const info = await getDatasetInfo(endpointValue, year);
 
-        // A cursor is only usable if the data it points into is still on disk.
-        let cursor: string | null = info.exists ? previous?.lastCursor ?? null : null;
+        // A resume point is only usable if the data it points into is still on disk.
+        const resumable = info.exists ? previous : null;
+        let cursor: string | null = resumable?.lastCursor ?? null;
+        let offset = resumable?.lastOffset ?? 0;
 
         const snapshotAt = def.group === 'dashboard' ? new Date().toISOString() : undefined;
         const collected: DataRecord[] = [];
@@ -127,7 +129,8 @@ export async function POST(request: Request) {
             const page = await fetchPage(endpointValue, {
                 year,
                 cursor,
-                limit: def.paginated ? batchSize : undefined,
+                offset,
+                limit: def.pagination === 'none' ? undefined : batchSize,
                 snapshotAt,
             });
 
@@ -144,11 +147,23 @@ export async function POST(request: Request) {
 
             collected.push(...page.rows);
             pagesFetched++;
-            cursor = page.cursor;
 
-            if (!page.hasMore) {
-                isComplete = true;
-                break;
+            // Offset endpoints report no cursor and no has_more, so a short page
+            // is the only end-of-data signal they give us.
+            if (def.pagination === 'offset') {
+                offset += page.rows.length;
+
+                if (page.rows.length < batchSize) {
+                    isComplete = true;
+                    break;
+                }
+            } else {
+                cursor = page.cursor;
+
+                if (!page.hasMore) {
+                    isComplete = true;
+                    break;
+                }
             }
 
             await sleep(INTER_PAGE_DELAY_MS);
@@ -160,7 +175,7 @@ export async function POST(request: Request) {
             if (def.kind === 'aggregate') {
                 // Aggregates are observations, not records: keep every capture.
                 write = await appendSnapshot(endpointValue, year, collected);
-            } else if (!def.paginated && isComplete) {
+            } else if (def.pagination === 'none' && isComplete) {
                 // Unpaginated endpoints return the whole dataset, so replacing
                 // it is both correct and cheaper than merging.
                 write = await overwriteRecords(endpointValue, year, collected, def.uniqueKeys);
@@ -170,6 +185,7 @@ export async function POST(request: Request) {
 
             await updateSyncState(endpointValue, stateKey, {
                 lastCursor: isComplete ? null : cursor,
+                lastOffset: isComplete ? 0 : offset,
                 totalRecords: write.totalRecords,
                 incomplete: !isComplete,
             });

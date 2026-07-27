@@ -48,7 +48,27 @@ describe('registry contents', () => {
 
     it('never paginates legacy endpoints, which return everything at once', () => {
         for (const ep of ENDPOINTS.filter((e) => e.generation === 'legacy')) {
-            assert.equal(ep.paginated, false, ep.value);
+            assert.equal(ep.pagination, 'none', ep.value);
+        }
+    });
+
+    // Dashboard tables carry no cursor and no meta, so cursor paging ends after
+    // one page and stores whatever the batch size happened to be -- 100 rows of
+    // a 7,707-row table. They advance by ?offset= instead.
+    it('paginates dashboard tables by offset, not cursor', () => {
+        const tables = ENDPOINTS.filter((ep) => ep.group === 'dashboard' && ep.value.endsWith('/table'));
+
+        assert.ok(tables.length > 0);
+        for (const ep of tables) {
+            assert.equal(ep.pagination, 'offset', ep.value);
+        }
+    });
+
+    // Offset paging detects the end by a short page, which only works when the
+    // rows are a real list. An aggregate always returns one row.
+    it('never paginates an aggregate by offset', () => {
+        for (const ep of ENDPOINTS.filter((e) => e.kind === 'aggregate')) {
+            assert.notEqual(ep.pagination, 'offset', ep.value);
         }
     });
 
