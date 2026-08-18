@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Synced procurement data: generated output (json/csv/xlsx per endpoint per
+# year) that reaches hundreds of megabytes. Belongs on disk, not in git.
+/DATA/
+
+# Excel lock files, created while a workbook is open
+~$*.xlsx
+
+# Throwaway tooling output
+lint_report*.json

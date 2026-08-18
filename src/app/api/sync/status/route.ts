@@ -1,115 +1,125 @@
 /**
- * Sync Status API Route
- * Returns the sync status for all endpoints or a specific endpoint
- * Also verifies file existence and updates state if files are missing
+ * Sync Status API
+ *
+ * Reports what is on disk for every endpoint the app knows about, including
+ * which of the three formats exist.
  */
 
 import { NextResponse } from 'next/server';
-import { getAllSyncStates, getScheduleConfig, getSyncState, updateSyncState, resetSyncState } from '@/lib/sync-state';
-import { getFileInfo } from '@/lib/excel-service';
-import { ENDPOINTS } from '@/lib/constants';
+import {
+    getAllSyncStates,
+    getScheduleConfig,
+    getSyncState,
+    resetSyncState,
+    NO_YEAR,
+} from '@/lib/sync-state';
+import { getDatasetInfo, type DatasetInfo } from '@/lib/storage-service';
+import { DATA_ROOT, KODE_KLPD } from '@/lib/drive-config';
+import { getEndpoint, getEndpointTree, ENDPOINTS } from '@/lib/endpoint-registry';
+
+export const dynamic = 'force-dynamic';
+
+interface YearStatus {
+    year: string;
+    lastSyncDate: string;
+    totalRecords: number;
+    incomplete: boolean;
+    formats: DatasetInfo['formats'];
+    derivedStale: boolean;
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const endpoint = searchParams.get('endpoint');
-    const year = searchParams.get('year');
-    const verifyFiles = searchParams.get('verify') !== 'false'; // Default to true
+    const endpointParam = searchParams.get('endpoint');
+    const yearParam = searchParams.get('year');
+    // Verification clears state whose files have been deleted. It costs a stat
+    // per dataset, so polling callers can turn it off.
+    const verify = searchParams.get('verify') !== 'false';
 
     try {
-        // If specific endpoint requested
-        if (endpoint && year) {
-            const state = await getSyncState(endpoint, year);
-            const fileInfo = await getFileInfo(endpoint, year);
-            const schedule = await getScheduleConfig();
-
-            // If state says we have records but file doesn't exist, reset state
-            if (verifyFiles && state?.totalRecords && !fileInfo.exists) {
-                console.log(`File missing for ${endpoint} ${year}, resetting state`);
-                await resetSyncState(endpoint, year);
-                return NextResponse.json({
-                    endpoint,
-                    year,
-                    state: null,
-                    fileInfo,
-                    schedule,
-                });
+        if (endpointParam) {
+            const def = getEndpoint(endpointParam);
+            if (!def) {
+                return NextResponse.json({ error: 'Unknown endpoint' }, { status: 400 });
             }
 
-            return NextResponse.json({
-                endpoint,
-                year,
-                state,
-                fileInfo,
-                schedule,
-            });
+            const year = def.yearScoped ? yearParam ?? undefined : undefined;
+            const info = await getDatasetInfo(endpointParam, year);
+            const state = await getSyncState(endpointParam, year ?? NO_YEAR);
+
+            if (verify && state?.totalRecords && !info.exists) {
+                await resetSyncState(endpointParam, year ?? NO_YEAR);
+                return NextResponse.json({ endpoint: endpointParam, year, state: null, info });
+            }
+
+            return NextResponse.json({ endpoint: endpointParam, year, state, info });
         }
 
-        // Return all states with file verification
         const allStates = await getAllSyncStates();
         const schedule = await getScheduleConfig();
 
-        // Build comprehensive status for all endpoints with file verification
-        const endpointStatusesPromises = ENDPOINTS.map(async (ep) => {
-            const endpointStates = allStates[ep.value] || {};
-            const years = Object.keys(endpointStates);
+        const endpoints = await Promise.all(
+            ENDPOINTS.map(async (ep) => {
+                const recorded = allStates[ep.value] ?? {};
 
-            // Verify files for each year and update state if needed
-            const verifiedYears = await Promise.all(
-                years.map(async (y) => {
-                    const state = endpointStates[y];
-                    const fileInfo = await getFileInfo(ep.value, y);
+                const years = await Promise.all(
+                    Object.entries(recorded).map(async ([year, state]): Promise<YearStatus | null> => {
+                        const lookupYear = year === NO_YEAR ? undefined : year;
+                        const info = await getDatasetInfo(ep.value, lookupYear);
 
-                    // If file doesn't exist but state has records, reset
-                    if (verifyFiles && state?.totalRecords && !fileInfo.exists) {
-                        console.log(`File missing for ${ep.value} ${y}, clearing from status`);
-                        await resetSyncState(ep.value, y);
-                        return null; // Will be filtered out
-                    }
+                        // State without files is stale; drop it so the UI does
+                        // not offer a resume that cannot work.
+                        if (verify && state.totalRecords > 0 && !info.exists) {
+                            await resetSyncState(ep.value, year);
+                            return null;
+                        }
 
-                    return {
-                        year: y,
-                        state: {
-                            ...state,
-                            // In fastMode, getFileInfo doesn't return recordCount to save memory. Use state.
-                            totalRecords: fileInfo.exists ? (state?.totalRecords || 0) : 0,
-                        },
-                        fileExists: fileInfo.exists,
-                    };
-                })
-            );
+                        return {
+                            year,
+                            lastSyncDate: state.lastSyncDate,
+                            totalRecords: info.exists ? info.rowCount || state.totalRecords : 0,
+                            incomplete: state.incomplete ?? false,
+                            formats: info.formats,
+                            derivedStale: info.derivedStale,
+                        };
+                    }),
+                );
 
-            // Filter out null entries (deleted files)
-            const validYears = verifiedYears.filter((y) => y !== null);
+                const valid = years.filter((y): y is YearStatus => y !== null);
 
-            return {
-                endpoint: ep.value,
-                label: ep.label,
-                years: validYears,
-                lastSynced: validYears.length > 0
-                    ? validYears.reduce((latest, item) => {
-                        if (!item) return latest;
-                        const stateDate = new Date(item.state.lastSyncDate);
-                        return stateDate > latest ? stateDate : latest;
-                    }, new Date(0))
-                    : null,
-            };
-        });
-
-        const endpointStatuses = await Promise.all(endpointStatusesPromises);
-
-        console.log('Refresh complete - verified all file states');
+                return {
+                    endpoint: ep.value,
+                    label: ep.label,
+                    generation: ep.generation,
+                    group: ep.group,
+                    category: ep.category,
+                    kind: ep.kind,
+                    status: ep.status,
+                    yearScoped: ep.yearScoped,
+                    years: valid,
+                    lastSynced: valid.reduce<string | null>(
+                        (latest, y) => (!latest || y.lastSyncDate > latest ? y.lastSyncDate : latest),
+                        null,
+                    ),
+                };
+            }),
+        );
 
         return NextResponse.json({
-            endpoints: endpointStatuses,
+            endpoints,
+            tree: getEndpointTree().map(({ title, group, generation, categories, count }) => ({
+                title,
+                group,
+                generation,
+                count,
+                categories: categories.map((c) => ({ name: c.name, count: c.endpoints.length })),
+            })),
             schedule,
-            basePath: process.env.SYNC_LOCATION || process.env.INAPROC_DATA_PATH || 'C:/Users/User/Documents/Aldiva/01 - DATABASE INAPROC LKPP',
+            basePath: DATA_ROOT,
+            kodeKlpd: KODE_KLPD,
         });
-    } catch (error: any) {
-        console.error('Error getting sync status:', error);
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        );
+    } catch (error) {
+        console.error('[sync/status] failed:', error);
+        return NextResponse.json({ error: 'Gagal membaca status sinkronisasi' }, { status: 500 });
     }
 }
-

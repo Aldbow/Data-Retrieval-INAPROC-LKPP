@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -10,24 +10,48 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
-    Loader2,
     Zap,
     History,
     FileSpreadsheet,
     Activity,
     AlertCircle,
     CheckCircle2,
-    ArrowRight,
     Database,
-    Terminal,
-    TerminalSquare
+    Square,
 } from 'lucide-react';
-import { ENDPOINTS, getSyncableEndpoints } from '@/lib/constants';
+import { getEndpoint, getRangeSyncableEndpoints, type EndpointDef } from '@/lib/endpoint-registry';
 import { Progress } from '@/components/ui/progress';
 import { FadeIn, SlideUp, StaggerContainer, StaggerItem, ScaleOnHover } from './ui/motion-primitives';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface SyncStat {
+    endpoint: string;
+    year: string;
+    newRecords: number;
+    duplicatesOrTotal: number;
+    status: 'success' | 'error';
+    message?: string;
+}
+
+interface LogEntry {
+    msg: string;
+    type: 'info' | 'success' | 'error';
+    time: string;
+}
+
+/** Which slice of the registry a range sync targets. */
+type Scope = 'v1-data' | 'v1-dashboard' | 'legacy';
+
+const SCOPES: { id: Scope; label: string; match: (ep: EndpointDef) => boolean }[] = [
+    { id: 'v1-data', label: 'V1 · Data', match: (ep) => ep.generation === 'v1' && ep.group === 'data' },
+    { id: 'v1-dashboard', label: 'V1 · Dashboard', match: (ep) => ep.group === 'dashboard' },
+    { id: 'legacy', label: 'Legacy', match: (ep) => ep.generation === 'legacy' },
+];
+
+/** Upper bound on requests per endpoint/year, as a backstop against runaway loops. */
+const MAX_BATCHES_PER_DATASET = 500;
 
 export function RangeSyncManager() {
     const [rangeSyncConfig, setRangeSyncConfig] = useState({
@@ -35,166 +59,165 @@ export function RangeSyncManager() {
         endYear: '2027',
         currentYear: null as string | null,
         isSyncing: false,
-        forceSync: false
+        forceSync: false,
     });
 
-    interface SyncStat {
-        endpoint: string;
-        year: string;
-        newRecords: number;
-        duplicatesOrTotal: number;
-        status: 'success' | 'error';
-        message?: string;
-    }
-
     const [stats, setStats] = useState<SyncStat[]>([]);
-    const [activeTab, setActiveTab] = useState<'v1' | 'legacy'>('v1');
-    const [logs, setLogs] = useState<{msg: string, type: 'info' | 'success' | 'error', time: string}[]>([]);
+    const [activeScope, setActiveScope] = useState<Scope>('v1-data');
+    const [logs, setLogs] = useState<LogEntry[]>([]);
     const [progress, setProgress] = useState(0);
     const [syncingEndpoint, setSyncingEndpoint] = useState<string | null>(null);
 
-    const addLog = (msg: string, type: 'info' | 'success' | 'error' = 'info') => {
-        const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        setLogs(prev => [{ msg, type, time }, ...prev]);
-    };
+    /** Read every iteration, so it must be a ref rather than state. */
+    const cancelled = useRef(false);
 
-    const addStat = (stat: SyncStat) => {
-        setStats(prev => [...prev, stat]);
-    };
+    const targetEndpoints = useMemo(() => {
+        const scope = SCOPES.find((s) => s.id === activeScope)!;
+        return getRangeSyncableEndpoints().filter(scope.match);
+    }, [activeScope]);
 
-    const syncEndpoint = async (endpoint: string, year: string, isFirstBatch: boolean) => {
-        setSyncingEndpoint(endpoint);
-        try {
-            let isComplete = false;
+    const addLog = useCallback((msg: string, type: LogEntry['type'] = 'info') => {
+        const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
+        setLogs((prev) => [{ msg, type, time }, ...prev].slice(0, 500));
+    }, []);
+
+    const addStat = useCallback((stat: SyncStat) => {
+        setStats((prev) => [...prev, stat]);
+    }, []);
+
+    /**
+     * Sync one endpoint/year to completion.
+     *
+     * Stops on `stalled`, which the server sets when a request fetched nothing
+     * and did not reach the end of the data. Retrying an identical request in
+     * that state used to spin forever, because the response was still
+     * `success: true` and so passed the retry check.
+     */
+    const syncEndpoint = useCallback(
+        async (endpoint: EndpointDef, year: string, allowForce: boolean) => {
+            setSyncingEndpoint(endpoint.value);
+
             let totalNew = 0;
             let totalSkipped = 0;
             let totalRecords = 0;
 
-            // Only pass forceOverwrite on the FIRST batch of an endpoint/year sync.
-            // If we passed it on every loop, it would delete the file every 100 rows!
-            let firstRequestInLoop = isFirstBatch;
+            try {
+                let isComplete = false;
+                // Only the first request may wipe the dataset; passing it on
+                // every batch would delete the file every 100 rows.
+                let isFirstRequest = true;
+                let batches = 0;
 
-            while (!isComplete) {
-                let retryCount = 0;
-                let success = false;
-                let result: any = null;
-
-                while (!success && retryCount < 3) {
-                    try {
-                        const res = await fetch('/api/sync', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                endpoint,
-                                year,
-                                batchSize: 100,
-                                maxPages: 50,
-                                forceOverwrite: firstRequestInLoop ? rangeSyncConfig.forceSync : false
-                            }),
-                        });
-
-                        if (!res.ok) {
-                            const errorText = await res.text();
-                            throw new Error(`HTTP ${res.status}: ${errorText}`);
-                        }
-
-                        result = await res.json();
-                        if (!result.success) throw new Error(result.error || 'Sync failed');
-                        
-                        success = true;
-                    } catch (err: any) {
-                        retryCount++;
-                        console.warn(`Retry ${retryCount}/3 for ${endpoint} ${year} due to: ${err.message}`);
-                        if (retryCount >= 3) {
-                            throw new Error(`Failed after 3 retries. Last error: ${err.message}`);
-                        }
-                        await new Promise((r) => setTimeout(r, 2000)); // Wait 2s before retry
+                while (!isComplete && !cancelled.current) {
+                    if (++batches > MAX_BATCHES_PER_DATASET) {
+                        throw new Error(`Berhenti setelah ${MAX_BATCHES_PER_DATASET} batch tanpa selesai`);
                     }
+
+                    const res = await fetch('/api/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            endpoint: endpoint.value,
+                            year,
+                            batchSize: 100,
+                            maxPages: 50,
+                            forceOverwrite: isFirstRequest && allowForce && rangeSyncConfig.forceSync,
+                        }),
+                    });
+
+                    const result = await res.json();
+                    if (!res.ok || !result.success) {
+                        throw new Error(result?.error || `HTTP ${res.status}`);
+                    }
+
+                    isFirstRequest = false;
+                    totalNew += result.newRecords ?? 0;
+                    totalSkipped += result.duplicatesSkipped ?? 0;
+                    totalRecords = result.totalRecords ?? totalRecords;
+                    isComplete = result.isComplete;
+
+                    if (result.stalled) {
+                        throw new Error(result.warning || 'Berhenti tanpa kemajuan');
+                    }
+
+                    if (!isComplete) await new Promise((r) => setTimeout(r, 400));
                 }
 
-                firstRequestInLoop = false;
+                if (cancelled.current) return;
 
-                totalNew += result.newRecords;
-                totalSkipped += result.duplicatesSkipped;
-                totalRecords = result.totalRecords;
-                isComplete = result.isComplete;
-
-                if (!isComplete) await new Promise((r) => setTimeout(r, 500));
+                addLog(`Selesai ${endpoint.label} (${year}): +${totalNew.toLocaleString('id-ID')} baris`, 'success');
+                addStat({
+                    endpoint: endpoint.label,
+                    year,
+                    newRecords: totalNew,
+                    duplicatesOrTotal: endpoint.pagination === 'none' ? totalRecords : totalSkipped,
+                    status: 'success',
+                });
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Kesalahan tidak diketahui';
+                console.error(`Range sync failed for ${endpoint.value} ${year}:`, error);
+                addLog(`Gagal ${endpoint.label} (${year}): ${message}`, 'error');
+                addStat({
+                    endpoint: endpoint.label,
+                    year,
+                    newRecords: 0,
+                    duplicatesOrTotal: 0,
+                    status: 'error',
+                    message,
+                });
+            } finally {
+                setSyncingEndpoint(null);
             }
+        },
+        [rangeSyncConfig.forceSync, addLog, addStat],
+    );
 
-            const endpointLabel = ENDPOINTS.find(e => e.value === endpoint)?.label || endpoint;
-            addLog(`Completed ${endpointLabel} (${year}): +${totalNew} rows`, 'success');
+    const handleRangeSync = useCallback(async () => {
+        const start = parseInt(rangeSyncConfig.startYear, 10);
+        const end = parseInt(rangeSyncConfig.endYear, 10);
 
-            addStat({
-                endpoint: endpointLabel,
-                year,
-                newRecords: totalNew,
-                duplicatesOrTotal: activeTab === 'v1' ? totalSkipped : totalRecords,
-                status: 'success'
-            });
-
-        } catch (error: any) {
-            console.error('Sync error:', error);
-            const endpointLabel = ENDPOINTS.find(e => e.value === endpoint)?.label || endpoint;
-            addLog(`Error syncing ${endpointLabel} (${year}): ${error.message}`, 'error');
-
-            addStat({
-                endpoint: endpointLabel,
-                year,
-                newRecords: 0,
-                duplicatesOrTotal: 0,
-                status: 'error',
-                message: error.message
-            });
-        } finally {
-            setSyncingEndpoint(null);
-        }
-    };
-
-    const handleRangeSync = async () => {
-        const start = parseInt(rangeSyncConfig.startYear);
-        const end = parseInt(rangeSyncConfig.endYear);
-
-        if (isNaN(start) || isNaN(end) || start > end) {
-            addLog("Invalid year range selected.", 'error');
+        if (Number.isNaN(start) || Number.isNaN(end) || start > end) {
+            addLog('Rentang tahun tidak valid.', 'error');
             return;
         }
 
-        setRangeSyncConfig(prev => ({ ...prev, isSyncing: true }));
+        if (targetEndpoints.length === 0) {
+            addLog('Tidak ada endpoint yang bisa disinkronkan untuk cakupan ini.', 'error');
+            return;
+        }
+
+        cancelled.current = false;
+        setRangeSyncConfig((prev) => ({ ...prev, isSyncing: true }));
         setLogs([]);
         setStats([]);
         setProgress(0);
-        addLog(`INITIALIZING ${activeTab.toUpperCase()} BATCH SYNC [${start} - ${end}]`, 'info');
 
-        const allEndpoints = getSyncableEndpoints();
-        const targetEndpoints = allEndpoints.filter(ep => activeTab === 'v1' ? ep.type === 'v1' : ep.type === 'legacy');
-
-        if (targetEndpoints.length === 0) {
-            addLog("No endpoints found for this category.", 'error');
-            setRangeSyncConfig(prev => ({ ...prev, isSyncing: false }));
-            return;
-        }
+        const scopeLabel = SCOPES.find((s) => s.id === activeScope)!.label;
+        addLog(`MEMULAI BATCH SYNC ${scopeLabel} [${start}-${end}] · ${targetEndpoints.length} endpoint`, 'info');
 
         const totalSteps = (end - start + 1) * targetEndpoints.length;
         let completedSteps = 0;
 
         try {
-            for (let y = start; y <= end; y++) {
+            for (let y = start; y <= end && !cancelled.current; y++) {
                 const yearStr = String(y);
-                setRangeSyncConfig(prev => ({ ...prev, currentYear: yearStr }));
-                addLog(`--- STARTING YEAR ${yearStr} ---`, 'info');
+                setRangeSyncConfig((prev) => ({ ...prev, currentYear: yearStr }));
+                addLog(`--- TAHUN ${yearStr} ---`, 'info');
 
                 for (const ep of targetEndpoints) {
-                    await syncEndpoint(ep.value, yearStr, true);
+                    if (cancelled.current) break;
+                    await syncEndpoint(ep, yearStr, true);
                     completedSteps++;
                     setProgress(Math.round((completedSteps / totalSteps) * 100));
                 }
             }
-            addLog('BATCH SYNC COMPLETED SUCCESSFULLY', 'success');
+
+            addLog(cancelled.current ? 'BATCH SYNC DIHENTIKAN' : 'BATCH SYNC SELESAI', cancelled.current ? 'info' : 'success');
         } finally {
-            setRangeSyncConfig(prev => ({ ...prev, isSyncing: false, currentYear: null }));
+            setRangeSyncConfig((prev) => ({ ...prev, isSyncing: false, currentYear: null }));
+            cancelled.current = false;
         }
-    };
+    }, [rangeSyncConfig.startYear, rangeSyncConfig.endYear, targetEndpoints, activeScope, addLog, syncEndpoint]);
 
     const totalNewRows = stats.reduce((acc, curr) => acc + curr.newRecords, 0);
     const totalProcessed = stats.length;
@@ -222,59 +245,53 @@ export function RangeSyncManager() {
                 {/* Configuration Panel */}
                 <div className="xl:col-span-5 rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-xl shadow-xl p-8 flex flex-col gap-8">
                     
-                    {/* Strategy Selector */}
+                    {/* Scope Selector */}
                     <div className="space-y-4">
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Sync Strategy</label>
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Cakupan Sinkronisasi</label>
                         <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-[1.5rem] border border-border/50 w-full shadow-inner">
-                            <Button
-                                variant="ghost"
-                                className={cn(
-                                    "flex-1 transition-all rounded-xl text-sm font-bold h-12",
-                                    activeTab === 'v1'
-                                        ? "bg-background text-primary shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
-                                )}
-                                onClick={() => setActiveTab('v1')}
-                            >
-                                V1 API (Modern)
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                className={cn(
-                                    "flex-1 transition-all rounded-xl text-sm font-bold h-12",
-                                    activeTab === 'legacy'
-                                        ? "bg-background text-amber-600 dark:text-amber-500 shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
-                                )}
-                                onClick={() => setActiveTab('legacy')}
-                            >
-                                Legacy API
-                            </Button>
+                            {SCOPES.map((scope) => (
+                                <Button
+                                    key={scope.id}
+                                    variant="ghost"
+                                    disabled={rangeSyncConfig.isSyncing}
+                                    className={cn(
+                                        "flex-1 transition-all rounded-xl text-xs sm:text-sm font-bold h-12",
+                                        activeScope === scope.id
+                                            ? scope.id === 'legacy'
+                                                ? "bg-background text-amber-600 dark:text-amber-500 shadow-sm"
+                                                : "bg-background text-primary shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                    onClick={() => setActiveScope(scope.id)}
+                                >
+                                    {scope.label}
+                                </Button>
+                            ))}
                         </div>
 
                         <div className={cn(
                             "text-sm p-4 rounded-2xl border transition-all duration-300 shadow-inner",
-                            activeTab === 'v1'
-                                ? "bg-blue-500/5 text-blue-700 dark:text-blue-300 border-blue-500/20"
-                                : "bg-amber-500/5 text-amber-700 dark:text-amber-300 border-amber-500/20"
+                            activeScope === 'legacy'
+                                ? "bg-amber-500/5 text-amber-700 dark:text-amber-300 border-amber-500/20"
+                                : "bg-blue-500/5 text-blue-700 dark:text-blue-300 border-blue-500/20"
                         )}>
-                            {activeTab === 'v1' ? (
-                                <div className="flex items-start gap-3">
-                                    <Zap className="h-5 w-5 shrink-0 mt-0.5" />
-                                    <div>
-                                        <span className="font-extrabold block mb-1">Incremental Sync</span>
-                                        <span className="opacity-90 leading-relaxed font-medium">Uses smart cursors to fetch only new records since the last sync. Fast, efficient, and friendly to the API.</span>
-                                    </div>
+                            <div className="flex items-start gap-3">
+                                {activeScope === 'legacy'
+                                    ? <FileSpreadsheet className="h-5 w-5 shrink-0 mt-0.5" />
+                                    : <Zap className="h-5 w-5 shrink-0 mt-0.5" />}
+                                <div>
+                                    <span className="font-extrabold block mb-1">
+                                        {activeScope === 'legacy' ? 'Overwrite Sync' : 'Incremental Sync'}
+                                        <span className="font-medium opacity-70"> · {targetEndpoints.length} endpoint</span>
+                                    </span>
+                                    <span className="opacity-90 leading-relaxed font-medium">
+                                        {activeScope === 'legacy'
+                                            ? 'Endpoint legacy mengirim seluruh dataset sekaligus, jadi file lama digantikan penuh.'
+                                            : 'Menggunakan cursor untuk mengambil hanya data baru sejak sinkronisasi terakhir.'}
+                                        {' '}Hasilnya ditulis sebagai JSON, CSV, dan XLSX.
+                                    </span>
                                 </div>
-                            ) : (
-                                <div className="flex items-start gap-3">
-                                    <FileSpreadsheet className="h-5 w-5 shrink-0 mt-0.5" />
-                                    <div>
-                                        <span className="font-extrabold block mb-1">Overwrite Sync</span>
-                                        <span className="opacity-90 leading-relaxed font-medium">Downloads the full dataset for the selected year and replaces existing files. Use this for data consistency checks.</span>
-                                    </div>
-                                </div>
-                            )}
+                            </div>
                         </div>
                     </div>
 
@@ -309,21 +326,22 @@ export function RangeSyncManager() {
                     </div>
                     
                     {/* Advanced Options */}
-                    {activeTab === 'v1' && (
-                        <div className="flex items-start space-x-3 bg-background/30 p-4 rounded-2xl border border-border/50 shadow-inner">
-                            <input 
-                                type="checkbox" 
-                                id="forceSync" 
-                                checked={rangeSyncConfig.forceSync}
-                                onChange={(e) => setRangeSyncConfig(prev => ({ ...prev, forceSync: e.target.checked }))}
-                                className="w-5 h-5 mt-0.5 rounded border-border/50 text-emerald-500 focus:ring-emerald-500/20 bg-background/50 cursor-pointer accent-emerald-500"
-                            />
-                            <div className="space-y-1.5 leading-none">
-                                <label htmlFor="forceSync" className="text-sm font-bold cursor-pointer text-foreground block">Force Full Resync</label>
-                                <p className="text-xs text-muted-foreground font-medium leading-relaxed">Delete local files & bypass cursor. Fetches everything from scratch.</p>
-                            </div>
+                    <div className="flex items-start space-x-3 bg-background/30 p-4 rounded-2xl border border-border/50 shadow-inner">
+                        <input
+                            type="checkbox"
+                            id="forceSync"
+                            checked={rangeSyncConfig.forceSync}
+                            disabled={rangeSyncConfig.isSyncing}
+                            onChange={(e) => setRangeSyncConfig(prev => ({ ...prev, forceSync: e.target.checked }))}
+                            className="w-5 h-5 mt-0.5 rounded border-border/50 text-emerald-500 focus:ring-emerald-500/20 bg-background/50 cursor-pointer accent-emerald-500"
+                        />
+                        <div className="space-y-1.5 leading-none">
+                            <label htmlFor="forceSync" className="text-sm font-bold cursor-pointer text-foreground block">Force Full Resync</label>
+                            <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                                Hapus file lokal (JSON, CSV, XLSX) dan abaikan cursor. Mengambil semuanya dari awal.
+                            </p>
                         </div>
-                    )}
+                    </div>
 
                     <Button
                         size="lg"
@@ -333,18 +351,18 @@ export function RangeSyncManager() {
                                 ? "bg-secondary text-secondary-foreground"
                                 : "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98]"
                         )}
-                        onClick={handleRangeSync}
-                        disabled={rangeSyncConfig.isSyncing}
+                        onClick={rangeSyncConfig.isSyncing ? () => { cancelled.current = true; } : handleRangeSync}
+                        disabled={targetEndpoints.length === 0}
                     >
                         {rangeSyncConfig.isSyncing ? (
                             <>
-                                <Loader2 className="h-6 w-6 mr-3 animate-spin" />
-                                Processing Batch Sync...
+                                <Square className="h-5 w-5 mr-3" />
+                                Hentikan Batch Sync
                             </>
                         ) : (
                             <>
                                 <Zap className="h-6 w-6 mr-3" />
-                                Start Range Sync
+                                Mulai Range Sync
                             </>
                         )}
                     </Button>
@@ -375,9 +393,9 @@ export function RangeSyncManager() {
                                 <div className="text-sm text-primary font-bold flex items-center gap-2 mt-2">
                                     <Activity className="h-4 w-4 animate-pulse" />
                                     <span>
-                                        Processing: {ENDPOINTS.find(e => e.value === syncingEndpoint)?.label} 
-                                        <span className="text-muted-foreground/30 mx-2">|</span> 
-                                        Year: <span className="text-foreground">{rangeSyncConfig.currentYear}</span>
+                                        Memproses: {syncingEndpoint ? getEndpoint(syncingEndpoint)?.label ?? syncingEndpoint : '—'}
+                                        <span className="text-muted-foreground/30 mx-2">|</span>
+                                        Tahun: <span className="text-foreground">{rangeSyncConfig.currentYear}</span>
                                     </span>
                                 </div>
                             )}
@@ -465,7 +483,7 @@ export function RangeSyncManager() {
                                             <th className="px-6 py-4 w-[100px]">Year</th>
                                             <th className="px-6 py-4 text-right w-[150px]">New Rows</th>
                                             <th className="px-6 py-4 text-right">
-                                                {activeTab === 'v1' ? 'Skipped' : 'Total Size'}
+                                                {activeScope === 'legacy' ? 'Total Baris' : 'Duplikat Dilewati'}
                                             </th>
                                             <th className="px-6 py-4 w-[100px] text-center">Status</th>
                                         </tr>
