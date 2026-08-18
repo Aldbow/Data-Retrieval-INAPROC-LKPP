@@ -104,6 +104,18 @@ export interface EndpointDef {
 const RUP_PAKET_KEY = ['kode_rup||kd_rup'];
 const LELANG_KEY = ['kode_lelang||kd_lelang||kode_rup||kd_rup'];
 
+/**
+ * Pencatatan (non-tender / swakelola) is keyed by its own record id, NOT by the
+ * RUP package it belongs to: one RUP package is routinely recorded several
+ * times, e.g. an attempt that was cancelled plus the one that ran. Verified
+ * 2026-08-18 against K34 -- 2026 returns 33 rows over only 23 kd_rup values,
+ * and keying on kd_rup dropped 10 of them, including every "Paket Sedang
+ * Berjalan". kd_nontender_pct/kd_swakelola_pct is unique per row in every year
+ * checked (2024-2026), and both v1 and legacy spell it the same way.
+ */
+const PENCATATAN_NONTENDER_KEY = ['kd_nontender_pct'];
+const PENCATATAN_SWAKELOLA_KEY = ['kd_swakelola_pct'];
+
 type EndpointTraits = Omit<EndpointDef, 'value' | 'label' | 'generation' | 'group' | 'category'>;
 
 /** Defaults for a year-scoped, cursor-paginated v1 dataset. */
@@ -190,10 +202,13 @@ const V1_TENDER: EndpointDef[] = [
     def('/v1/tender/non-tender-ekontrak-kontrak', 'Non-Tender E-Kontrak: Kontrak', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_kontrak'])),
     def('/v1/tender/non-tender-pengumuman', 'Non-Tender Pengumuman', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
     def('/v1/tender/non-tender-selesai', 'Non-Tender Selesai', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
-    def('/v1/tender/pencatatan-non-tender', 'Pencatatan Non-Tender', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
-    def('/v1/tender/pencatatan-non-tender-realisasi', 'Pencatatan Non-Tender Realisasi', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'id_realisasi'])),
-    def('/v1/tender/pencatatan-swakelola', 'Pencatatan Swakelola', 'v1', 'data', 'Tender', v1Dataset(RUP_PAKET_KEY)),
-    def('/v1/tender/pencatatan-swakelola-realisasi', 'Pencatatan Swakelola Realisasi', 'v1', 'data', 'Tender', v1Dataset([...RUP_PAKET_KEY, 'id_realisasi'])),
+    def('/v1/tender/pencatatan-non-tender', 'Pencatatan Non-Tender', 'v1', 'data', 'Tender', v1Dataset(PENCATATAN_NONTENDER_KEY)),
+    // Realisasi has no verified key: a pencatatan carries several payments, and
+    // 2024 returned 212 rows over 146 (kd_nontender_pct, no_realisasi) pairs.
+    // The record hash keeps all of them; there is no 'id_realisasi' field.
+    def('/v1/tender/pencatatan-non-tender-realisasi', 'Pencatatan Non-Tender Realisasi', 'v1', 'data', 'Tender', v1Dataset()),
+    def('/v1/tender/pencatatan-swakelola', 'Pencatatan Swakelola', 'v1', 'data', 'Tender', v1Dataset(PENCATATAN_SWAKELOLA_KEY)),
+    def('/v1/tender/pencatatan-swakelola-realisasi', 'Pencatatan Swakelola Realisasi', 'v1', 'data', 'Tender', v1Dataset()),
     def('/v1/tender/pengumuman', 'Pengumuman Tender', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
     def('/v1/tender/peserta-tender', 'Peserta Tender', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_penyedia'])),
     def('/v1/tender/tender-ekontrak', 'Tender E-Kontrak', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_kontrak'])),
@@ -298,10 +313,10 @@ const LEGACY_TENDER: EndpointDef[] = [
     def('/legacy/tender/non-tender-ekontrak-sppbj', 'Non-Tender E-Kontrak: SPPBJ', 'legacy', 'data', 'Tender', legacyDataset()),
     def('/legacy/tender/non-tender-pengumuman', 'Non-Tender Pengumuman', 'legacy', 'data', 'Tender', legacyDataset(LELANG_KEY)),
     def('/legacy/tender/non-tender-selesai', 'Non-Tender Selesai', 'legacy', 'data', 'Tender', legacyDataset(LELANG_KEY)),
-    def('/legacy/tender/pencatatan-non-tender', 'Pencatatan Non-Tender', 'legacy', 'data', 'Tender', legacyDataset(LELANG_KEY)),
-    def('/legacy/tender/pencatatan-non-tender-realisasi', 'Pencatatan Non-Tender Realisasi', 'legacy', 'data', 'Tender', legacyDataset([...LELANG_KEY, 'id_realisasi'])),
-    def('/legacy/tender/pencatatan-swakelola', 'Pencatatan Swakelola', 'legacy', 'data', 'Tender', legacyDataset(RUP_PAKET_KEY)),
-    def('/legacy/tender/pencatatan-swakelola-realisasi', 'Pencatatan Swakelola Realisasi', 'legacy', 'data', 'Tender', legacyDataset([...RUP_PAKET_KEY, 'id_realisasi'])),
+    def('/legacy/tender/pencatatan-non-tender', 'Pencatatan Non-Tender', 'legacy', 'data', 'Tender', legacyDataset(PENCATATAN_NONTENDER_KEY)),
+    def('/legacy/tender/pencatatan-non-tender-realisasi', 'Pencatatan Non-Tender Realisasi', 'legacy', 'data', 'Tender', legacyDataset()),
+    def('/legacy/tender/pencatatan-swakelola', 'Pencatatan Swakelola', 'legacy', 'data', 'Tender', legacyDataset(PENCATATAN_SWAKELOLA_KEY)),
+    def('/legacy/tender/pencatatan-swakelola-realisasi', 'Pencatatan Swakelola Realisasi', 'legacy', 'data', 'Tender', legacyDataset()),
     def('/legacy/tender/pengumuman', 'Pengumuman Tender', 'legacy', 'data', 'Tender', legacyDataset(LELANG_KEY)),
     def('/legacy/tender/peserta-tender', 'Peserta Tender', 'legacy', 'data', 'Tender', legacyDataset([...LELANG_KEY, 'kd_penyedia'])),
     def('/legacy/tender/tender-ekontrak-bapbast', 'Tender E-Kontrak: BAPBAST', 'legacy', 'data', 'Tender', legacyDataset()),
