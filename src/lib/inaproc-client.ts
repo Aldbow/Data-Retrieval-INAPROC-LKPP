@@ -6,9 +6,9 @@
  * of assembling URLs themselves.
  */
 
-import { API_BASE_URL, KLPD_JENIS, KODE_KLPD } from './drive-config';
-import { getEndpoint, isKnownEndpoint } from './endpoint-registry';
-import { adaptResponse, type AdaptedResponse } from './response-adapter';
+import { API_BASE_URL, KLPD_JENIS, KODE_KLPD } from './drive-config.ts';
+import { getEndpoint, isKnownEndpoint } from './endpoint-registry.ts';
+import { adaptResponse, type AdaptedResponse } from './response-adapter.ts';
 
 const RETRY = {
     maxAttempts: 3,

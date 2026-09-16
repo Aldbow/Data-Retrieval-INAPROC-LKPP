@@ -27,9 +27,9 @@ import {
     type StorageFormat,
     getDatasetPaths,
     type DatasetPaths,
-} from './drive-config';
+} from './drive-config.ts';
 import type { DataRecord } from './response-adapter';
-import { recordKey, toCsv, toWorkbook } from './dataset-format';
+import { recordKey, toCsv, toWorkbook } from './dataset-format.ts';
 
 export { recordKey, toCsv, toWorkbook };
 

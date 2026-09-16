@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test \"src/lib/__tests__/*.test.ts\"",
-    "verify": "npm run typecheck && npm run lint && npm test"
+    "verify": "npm run typecheck && npm run lint && npm test",
+    "pull:v1": "node --env-file-if-exists=.env.local --experimental-transform-types scripts/pull-v1-all.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

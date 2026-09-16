@@ -12,8 +12,8 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { SYNC_STATE_FILE } from './drive-config';
-import { isKnownEndpoint } from './endpoint-registry';
+import { SYNC_STATE_FILE } from './drive-config.ts';
+import { isKnownEndpoint } from './endpoint-registry.ts';
 
 export interface EndpointSyncState {
     lastCursor: string | null;
