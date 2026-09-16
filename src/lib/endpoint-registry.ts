@@ -116,6 +116,51 @@ const LELANG_KEY = ['kode_lelang||kd_lelang||kode_rup||kd_rup'];
 const PENCATATAN_NONTENDER_KEY = ['kd_nontender_pct'];
 const PENCATATAN_SWAKELOLA_KEY = ['kd_swakelola_pct'];
 
+/**
+ * Paket anggaran breakdown: one RUP package draws from several budget lines,
+ * each a separate row -- RUP_PAKET_KEY's kode_rup is the package, not the
+ * line, and is not unique here. id_paket_anggaran_penyedia /
+ * id_paket_anggaran_swakelola are each unique per row. Verified 2026-09-16
+ * against K34 -- 2024: keying on kode_rup collapsed 88 of 881 keys (119+
+ * rows) on paket-anggaran-penyedia and 99 of 875 keys (125+ rows) on
+ * paket-anggaran-swakelola, in each case merging rows with different ids and
+ * different pagu.
+ */
+const PAKET_ANGGARAN_PENYEDIA_KEY = ['id_paket_anggaran_penyedia'];
+const PAKET_ANGGARAN_SWAKELOLA_KEY = ['id_paket_anggaran_swakelola'];
+
+/**
+ * Non-tender/tender announcements: same re-attempt pattern documented above
+ * for pencatatan -- one kode_rup is routinely re-announced (cancelled, then
+ * re-run), and LELANG_KEY's kode_lelang/kd_lelang do not appear in these
+ * payloads at all, so it silently degraded to kode_rup alone. kd_nontender
+ * and kd_tender are each unique per attempt. Verified 2026-09-16 against K34
+ * -- 2024: LELANG_KEY collapsed 3+ of 68 rows on non-tender-pengumuman, 3 of
+ * 62 on non-tender-selesai, and 14 of 100 on pengumuman, always merging rows
+ * with different status (e.g. "Gagal/Batal" vs "Selesai").
+ */
+const NONTENDER_ATTEMPT_KEY = ['kd_nontender'];
+const TENDER_ATTEMPT_KEY = ['kd_tender'];
+
+/**
+ * peserta-tender carries no kode_lelang/kd_lelang/kode_rup/kd_rup field at
+ * all, so LELANG_KEY evaluated to nothing and the key silently degraded to
+ * kd_penyedia alone -- one company bidding in many different tenders
+ * collapsed into a single row. kd_peserta is unique per participation
+ * record. Verified 2026-09-16 against K34 -- 2024: collapsed 205 of 685 keys
+ * (315+ rows) out of 1000 sampled.
+ */
+const PESERTA_TENDER_KEY = ['kd_peserta'];
+
+/**
+ * E-katalog archive paket-e-purchasing returns one row per product line
+ * within a purchasing package, not one row per package -- kd_paket is
+ * shared by every line. kd_paket_produk is unique per line. Verified
+ * 2026-09-16 against K34 -- 2024: collapsed 157 of 445 keys (555+ of 1000
+ * sampled rows), merging lines with different products and prices.
+ */
+const PAKET_E_PURCHASING_LINE_KEY = ['kd_paket_produk'];
+
 type EndpointTraits = Omit<EndpointDef, 'value' | 'label' | 'generation' | 'group' | 'category'>;
 
 /** Defaults for a year-scoped, cursor-paginated v1 dataset. */
@@ -186,8 +231,8 @@ function def(
 const V1_RUP: EndpointDef[] = [
     def('/v1/rup/history-kaji-ulang', 'History Kaji Ulang', 'v1', 'data', 'RUP', v1Dataset()),
     def('/v1/rup/master-satker', 'Master Satker', 'v1', 'data', 'RUP', v1Dataset(['kode_klpd||kd_klpd', 'kode_satker||kd_satker'])),
-    def('/v1/rup/paket-anggaran-penyedia', 'Paket Anggaran Penyedia', 'v1', 'data', 'RUP', v1Dataset(RUP_PAKET_KEY)),
-    def('/v1/rup/paket-anggaran-swakelola', 'Paket Anggaran Swakelola', 'v1', 'data', 'RUP', v1Dataset(RUP_PAKET_KEY)),
+    def('/v1/rup/paket-anggaran-penyedia', 'Paket Anggaran Penyedia', 'v1', 'data', 'RUP', v1Dataset(PAKET_ANGGARAN_PENYEDIA_KEY)),
+    def('/v1/rup/paket-anggaran-swakelola', 'Paket Anggaran Swakelola', 'v1', 'data', 'RUP', v1Dataset(PAKET_ANGGARAN_SWAKELOLA_KEY)),
     def('/v1/rup/paket-penyedia', 'Paket Penyedia', 'v1', 'data', 'RUP', v1Dataset(RUP_PAKET_KEY)),
     def('/v1/rup/paket-penyedia-terumumkan', 'Paket Penyedia Terumumkan', 'v1', 'data', 'RUP', v1Dataset(RUP_PAKET_KEY)),
     def('/v1/rup/paket-swakelola', 'Paket Swakelola', 'v1', 'data', 'RUP', v1Dataset(RUP_PAKET_KEY)),
@@ -200,8 +245,8 @@ const V1_TENDER: EndpointDef[] = [
     def('/v1/tender/jadwal-tahapan-tender', 'Jadwal Tahapan Tender', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kode_tahap'])),
     def('/v1/tender/non-tender-ekontrak', 'Non-Tender E-Kontrak', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_kontrak'])),
     def('/v1/tender/non-tender-ekontrak-kontrak', 'Non-Tender E-Kontrak: Kontrak', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_kontrak'])),
-    def('/v1/tender/non-tender-pengumuman', 'Non-Tender Pengumuman', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
-    def('/v1/tender/non-tender-selesai', 'Non-Tender Selesai', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
+    def('/v1/tender/non-tender-pengumuman', 'Non-Tender Pengumuman', 'v1', 'data', 'Tender', v1Dataset(NONTENDER_ATTEMPT_KEY)),
+    def('/v1/tender/non-tender-selesai', 'Non-Tender Selesai', 'v1', 'data', 'Tender', v1Dataset(NONTENDER_ATTEMPT_KEY)),
     def('/v1/tender/pencatatan-non-tender', 'Pencatatan Non-Tender', 'v1', 'data', 'Tender', v1Dataset(PENCATATAN_NONTENDER_KEY)),
     // Realisasi has no verified key: a pencatatan carries several payments, and
     // 2024 returned 212 rows over 146 (kd_nontender_pct, no_realisasi) pairs.
@@ -209,8 +254,8 @@ const V1_TENDER: EndpointDef[] = [
     def('/v1/tender/pencatatan-non-tender-realisasi', 'Pencatatan Non-Tender Realisasi', 'v1', 'data', 'Tender', v1Dataset()),
     def('/v1/tender/pencatatan-swakelola', 'Pencatatan Swakelola', 'v1', 'data', 'Tender', v1Dataset(PENCATATAN_SWAKELOLA_KEY)),
     def('/v1/tender/pencatatan-swakelola-realisasi', 'Pencatatan Swakelola Realisasi', 'v1', 'data', 'Tender', v1Dataset()),
-    def('/v1/tender/pengumuman', 'Pengumuman Tender', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
-    def('/v1/tender/peserta-tender', 'Peserta Tender', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_penyedia'])),
+    def('/v1/tender/pengumuman', 'Pengumuman Tender', 'v1', 'data', 'Tender', v1Dataset(TENDER_ATTEMPT_KEY)),
+    def('/v1/tender/peserta-tender', 'Peserta Tender', 'v1', 'data', 'Tender', v1Dataset(PESERTA_TENDER_KEY)),
     def('/v1/tender/tender-ekontrak', 'Tender E-Kontrak', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_kontrak'])),
     def('/v1/tender/tender-ekontrak-kontrak', 'Tender E-Kontrak: Kontrak', 'v1', 'data', 'Tender', v1Dataset([...LELANG_KEY, 'kd_kontrak'])),
     def('/v1/tender/tender-selesai-nilai', 'Tender Selesai (Nilai)', 'v1', 'data', 'Tender', v1Dataset(LELANG_KEY)),
@@ -236,7 +281,7 @@ const V1_EKATALOG: EndpointDef[] = [
 const V1_EKATALOG_ARCHIVE: EndpointDef[] = [
     def('/v1/ekatalog-archive/instansi-satker', 'Instansi / Satker', 'v1', 'data', 'E-Katalog Archive', v1Dataset(['kode_klpd||kd_klpd', 'kode_satker||kd_satker'])),
     def('/v1/ekatalog-archive/komoditas-detail', 'Komoditas Detail', 'v1', 'data', 'E-Katalog Archive', detailEndpoint('v1')),
-    def('/v1/ekatalog-archive/paket-e-purchasing', 'Paket E-Purchasing', 'v1', 'data', 'E-Katalog Archive', v1Dataset(['kd_paket', 'kode_rup||kd_rup'])),
+    def('/v1/ekatalog-archive/paket-e-purchasing', 'Paket E-Purchasing', 'v1', 'data', 'E-Katalog Archive', v1Dataset(PAKET_E_PURCHASING_LINE_KEY)),
     def('/v1/ekatalog-archive/penyedia-detail', 'Penyedia Detail', 'v1', 'data', 'E-Katalog Archive', detailEndpoint('v1')),
     def('/v1/ekatalog-archive/penyedia-distributor-detail', 'Penyedia Distributor Detail', 'v1', 'data', 'E-Katalog Archive', detailEndpoint('v1')),
 ];
