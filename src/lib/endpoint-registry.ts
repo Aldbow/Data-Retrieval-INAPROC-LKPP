@@ -41,8 +41,11 @@ export type ResponseShape =
  * - needs-params : returns HTTP 400 for every documented parameter combination
  *                  we tried; the required parameter is unknown. Verified
  *                  2026-07-26 against 12 combinations; POST returns 405.
+ * - unavailable  : the path itself returns HTTP 404 -- it is documented but not
+ *                  deployed. Distinct from needs-params: no parameter can fix a
+ *                  route that does not exist, so there is nothing to retry.
  */
-export type EndpointStatus = 'ready' | 'requires-id' | 'needs-params';
+export type EndpointStatus = 'ready' | 'requires-id' | 'needs-params' | 'unavailable';
 
 /** @see EndpointDef.pagination */
 export type PaginationStyle = 'none' | 'cursor' | 'offset';
@@ -268,9 +271,12 @@ const V1_EKATALOG: EndpointDef[] = [
         yearScoped: false,
         klpdScoped: false,
     }),
+    // HTTP 400 / code 1004 "Permintaan tidak valid" for every combination probed
+    // 2026-09-17: no parameters, limit, kode_klpd, tahun, kd_penyedia.
     def('/v1/ekatalog/list-produk-penyedia', 'List Produk Penyedia', 'v1', 'data', 'E-Katalog', {
         ...v1Dataset(),
         kind: 'reference',
+        status: 'needs-params',
         yearScoped: false,
         klpdScoped: false,
     }),
@@ -290,19 +296,66 @@ const V1_EKATALOG_ARCHIVE: EndpointDef[] = [
 // V1 - DASHBOARD (aggregates; stored as timestamped snapshot series)
 // ============================================================================
 
+/**
+ * Traits of a family's `/table`, which is the one member that varies.
+ *
+ * Probed 2026-09-17 against K34/2026, and no two families agree: rup and
+ * realisasi answer with a bare `{ data: [...] }`, afirmasi nests its rows under
+ * `{ data: { rows, total_rows } }`, and profil/table is not a table at all --
+ * it returns the same precomputed totals object as profil/summary.
+ */
+interface DashboardTableTraits {
+    shape: ResponseShape;
+    kind: EndpointKind;
+    pagination: PaginationStyle;
+}
+
+/**
+ * A real, cursor-paginated dashboard table.
+ *
+ * These follow `meta.cursor` exactly like a v1 dataset. They must NOT be paged
+ * by ?offset=: probed 2026-09-17, the table endpoints ignore the parameter
+ * entirely -- offset=0 and offset=5000 return the same first page and the same
+ * `meta.cursor`, while `meta.has_more` stays true forever. A puller that trusts
+ * offset therefore never reaches the end and re-collects page one until it hits
+ * its page ceiling.
+ */
+const cursorTable = (shape: ResponseShape): DashboardTableTraits => ({
+    shape,
+    kind: 'dataset',
+    pagination: 'cursor',
+});
+
 /** summary / table / geo triplet shared by most dashboard families. */
-function dashboardFamily(slug: string, label: string, extra: EndpointDef[] = []): EndpointDef[] {
+function dashboardFamily(
+    slug: string,
+    label: string,
+    options: {
+        summaryShape?: ResponseShape;
+        table?: DashboardTableTraits;
+        /** Applied to every member, for a family the API does not serve at all. */
+        status?: EndpointStatus;
+        extra?: EndpointDef[];
+    } = {},
+): EndpointDef[] {
+    const {
+        summaryShape = 'object',
+        table = cursorTable('data-array'),
+        status = 'ready',
+        extra = [],
+    } = options;
     const base = `/v1/dashboard/${slug}`;
+
     return [
-        def(`${base}/summary`, `${label}: Summary`, 'v1', 'dashboard', label, dashboardAggregate('object')),
+        def(`${base}/summary`, `${label}: Summary`, 'v1', 'dashboard', label, dashboardAggregate(summaryShape, status)),
         def(`${base}/table`, `${label}: Table`, 'v1', 'dashboard', label, {
-            ...dashboardAggregate('rows'),
-            kind: 'dataset',
-            pagination: 'offset',
+            ...dashboardAggregate(table.shape, status),
+            kind: table.kind,
+            pagination: table.pagination,
         }),
-        def(`${base}/geo/eselon`, `${label}: Geo Eselon`, 'v1', 'dashboard', label, dashboardAggregate('items')),
-        def(`${base}/geo/instansi`, `${label}: Geo Instansi`, 'v1', 'dashboard', label, dashboardAggregate('items')),
-        def(`${base}/geo/satker`, `${label}: Geo Satker`, 'v1', 'dashboard', label, dashboardAggregate('items')),
+        def(`${base}/geo/eselon`, `${label}: Geo Eselon`, 'v1', 'dashboard', label, dashboardAggregate('items', status)),
+        def(`${base}/geo/instansi`, `${label}: Geo Instansi`, 'v1', 'dashboard', label, dashboardAggregate('items', status)),
+        def(`${base}/geo/satker`, `${label}: Geo Satker`, 'v1', 'dashboard', label, dashboardAggregate('items', status)),
         ...extra,
     ];
 }
@@ -316,19 +369,34 @@ const V1_DASHBOARD: EndpointDef[] = [
         jenisScoped: false,
         instansiScoped: false,
     }),
-    ...dashboardFamily('rup', 'RUP', [
-        def('/v1/dashboard/rup/detail', 'RUP: Detail', 'v1', 'dashboard', 'RUP', dashboardAggregate('rows', 'needs-params')),
-    ]),
-    ...dashboardFamily('realisasi', 'Realisasi', [
-        def('/v1/dashboard/realisasi/detail/paket', 'Realisasi: Detail Paket', 'v1', 'dashboard', 'Realisasi', dashboardAggregate('rows', 'needs-params')),
-        def('/v1/dashboard/realisasi/detail/jadwal', 'Realisasi: Detail Jadwal', 'v1', 'dashboard', 'Realisasi', dashboardAggregate('rows', 'needs-params')),
-        def('/v1/dashboard/realisasi/filters/status-paket', 'Realisasi: Filter Status Paket', 'v1', 'dashboard', 'Realisasi', dashboardAggregate('items', 'needs-params')),
-    ]),
-    ...dashboardFamily('pembayaran', 'Pembayaran'),
-    ...dashboardFamily('afirmasi', 'Afirmasi'),
-    ...dashboardFamily('profil', 'Profil', [
-        def('/v1/dashboard/profil/precomputed', 'Profil: Precomputed', 'v1', 'dashboard', 'Profil', dashboardAggregate('nested')),
-    ]),
+    ...dashboardFamily('rup', 'RUP', {
+        extra: [
+            def('/v1/dashboard/rup/detail', 'RUP: Detail', 'v1', 'dashboard', 'RUP', dashboardAggregate('rows', 'needs-params')),
+        ],
+    }),
+    ...dashboardFamily('realisasi', 'Realisasi', {
+        extra: [
+            def('/v1/dashboard/realisasi/detail/paket', 'Realisasi: Detail Paket', 'v1', 'dashboard', 'Realisasi', dashboardAggregate('rows', 'needs-params')),
+            def('/v1/dashboard/realisasi/detail/jadwal', 'Realisasi: Detail Jadwal', 'v1', 'dashboard', 'Realisasi', dashboardAggregate('rows', 'needs-params')),
+            def('/v1/dashboard/realisasi/filters/status-paket', 'Realisasi: Filter Status Paket', 'v1', 'dashboard', 'Realisasi', dashboardAggregate('items', 'needs-params')),
+        ],
+    }),
+    // Documented, but every one of the five paths answers 404 -- probed
+    // 2026-09-17 against K34/2026. Kept in the registry so the negative result
+    // stays recorded instead of being rediscovered by the next sync run.
+    ...dashboardFamily('pembayaran', 'Pembayaran', { status: 'unavailable' }),
+    // Afirmasi is the only family that wraps its table in { data: { rows } }.
+    ...dashboardFamily('afirmasi', 'Afirmasi', { table: cursorTable('rows') }),
+    // Profil has no table: /table, /summary and /precomputed all return the
+    // same { data: { data: { ...totals } } } snapshot, so all three are
+    // unpaginated aggregates rather than a list.
+    ...dashboardFamily('profil', 'Profil', {
+        summaryShape: 'nested',
+        table: { shape: 'nested', kind: 'aggregate', pagination: 'none' },
+        extra: [
+            def('/v1/dashboard/profil/precomputed', 'Profil: Precomputed', 'v1', 'dashboard', 'Profil', dashboardAggregate('nested')),
+        ],
+    }),
 ];
 
 // ============================================================================

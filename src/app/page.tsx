@@ -506,12 +506,18 @@ export default function Home() {
                                     </div>
                                     <div className="max-w-lg space-y-3">
                                         <h3 className="font-bold text-2xl">
-                                            {definition?.status === 'requires-id' ? 'Parameter ID Diperlukan' : 'Parameter Belum Diketahui'}
+                                            {definition?.status === 'requires-id'
+                                                ? 'Parameter ID Diperlukan'
+                                                : definition?.status === 'unavailable'
+                                                    ? 'Endpoint Tidak Tersedia'
+                                                    : 'Parameter Belum Diketahui'}
                                         </h3>
                                         <p className="text-muted-foreground text-lg">
                                             {definition?.status === 'requires-id'
                                                 ? 'Endpoint ini hanya bisa diakses per record, dengan ID spesifik seperti kd_penyedia atau kd_komoditas.'
-                                                : 'API menolak endpoint ini (HTTP 400) untuk semua kombinasi parameter yang sudah dicoba. Diperlukan parameter wajib yang belum terdokumentasi.'}
+                                                : definition?.status === 'unavailable'
+                                                    ? 'Endpoint ini terdokumentasi tetapi tidak dilayani API: semua permintaan dijawab HTTP 404. Tidak ada parameter yang bisa memperbaikinya.'
+                                                    : 'API menolak endpoint ini (HTTP 400) untuk semua kombinasi parameter yang sudah dicoba. Diperlukan parameter wajib yang belum terdokumentasi.'}
                                         </p>
                                     </div>
                                 </div>

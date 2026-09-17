@@ -33,7 +33,9 @@ export async function GET(request: Request) {
                 error:
                     def.status === 'requires-id'
                         ? 'Endpoint ini membutuhkan ID spesifik'
-                        : 'Endpoint ini membutuhkan parameter yang belum diketahui',
+                        : def.status === 'unavailable'
+                            ? 'Endpoint ini tidak tersedia di API (HTTP 404)'
+                            : 'Endpoint ini membutuhkan parameter yang belum diketahui',
                 data: [],
                 has_more: false,
             },

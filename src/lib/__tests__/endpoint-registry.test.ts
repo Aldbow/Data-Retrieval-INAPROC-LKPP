@@ -52,15 +52,25 @@ describe('registry contents', () => {
         }
     });
 
-    // Dashboard tables carry no cursor and no meta, so cursor paging ends after
-    // one page and stores whatever the batch size happened to be -- 100 rows of
-    // a 7,707-row table. They advance by ?offset= instead.
-    it('paginates dashboard tables by offset, not cursor', () => {
+    // Dashboard tables ignore ?offset= completely: probed 2026-09-17, offset=0
+    // and offset=5000 return the same first page and the same meta.cursor while
+    // meta.has_more stays true, so an offset-paged puller never terminates. The
+    // cursor does advance, and is the only end-of-data signal these give.
+    it('never paginates a dashboard table by offset', () => {
         const tables = ENDPOINTS.filter((ep) => ep.group === 'dashboard' && ep.value.endsWith('/table'));
 
         assert.ok(tables.length > 0);
         for (const ep of tables) {
-            assert.equal(ep.pagination, 'offset', ep.value);
+            assert.notEqual(ep.pagination, 'offset', ep.value);
+        }
+    });
+
+    // Nothing paginates by offset any more. Kept as a guard rather than
+    // deleted: the style stays supported, and re-declaring it for an endpoint
+    // should be a deliberate act backed by a fresh probe.
+    it('declares no offset pagination anywhere', () => {
+        for (const ep of ENDPOINTS) {
+            assert.notEqual(ep.pagination, 'offset', ep.value);
         }
     });
 
@@ -154,7 +164,7 @@ describe('sync eligibility', () => {
         }
     });
 
-    it('keeps the four probe-confirmed needs-params endpoints out of sync', () => {
+    it('keeps the probe-confirmed needs-params endpoints out of sync', () => {
         const blocked = ENDPOINTS.filter((ep) => ep.status === 'needs-params').map((ep) => ep.value);
 
         assert.deepEqual(blocked.sort(), [
@@ -162,6 +172,21 @@ describe('sync eligibility', () => {
             '/v1/dashboard/realisasi/detail/paket',
             '/v1/dashboard/realisasi/filters/status-paket',
             '/v1/dashboard/rup/detail',
+            '/v1/ekatalog/list-produk-penyedia',
+        ]);
+    });
+
+    // The whole pembayaran family answers 404 (probed 2026-09-17). Syncing it
+    // cost five guaranteed failures and a non-zero exit on every full pull.
+    it('keeps the 404-only pembayaran family out of sync', () => {
+        const missing = ENDPOINTS.filter((ep) => ep.status === 'unavailable').map((ep) => ep.value);
+
+        assert.deepEqual(missing.sort(), [
+            '/v1/dashboard/pembayaran/geo/eselon',
+            '/v1/dashboard/pembayaran/geo/instansi',
+            '/v1/dashboard/pembayaran/geo/satker',
+            '/v1/dashboard/pembayaran/summary',
+            '/v1/dashboard/pembayaran/table',
         ]);
     });
 });

@@ -84,6 +84,13 @@ export async function POST(request: Request) {
         );
     }
 
+    if (def.status === 'unavailable') {
+        return badRequest(
+            'This endpoint is not served by the API',
+            'Every request to this path returns HTTP 404; no parameter combination changes that',
+        );
+    }
+
     if (def.status === 'needs-params') {
         return badRequest(
             'This endpoint rejects every parameter combination we know',

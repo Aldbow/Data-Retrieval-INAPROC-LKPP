@@ -45,6 +45,17 @@ const INTER_ENDPOINT_DELAY_MS = 300;
  */
 const MAX_PAGES_SAFETY_VALVE = 20_000;
 
+/**
+ * Signature of a page, used to notice an endpoint that is not actually
+ * advancing. Comparing the first and last row is enough: two consecutive pages
+ * of a real listing never start AND end on the same record.
+ */
+function pageSignature(rows: DataRecord[]): string {
+    const first = JSON.stringify(rows[0] ?? null);
+    const last = JSON.stringify(rows[rows.length - 1] ?? null);
+    return `${rows.length}:${first}:${last}`;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface Args {
@@ -111,6 +122,7 @@ async function pullEndpoint(def: EndpointDef, requestedYear: string, fresh: bool
     const collected: DataRecord[] = [];
     let pagesFetched = 0;
     let isComplete = false;
+    let previousSignature: string | null = null;
 
     while (pagesFetched < MAX_PAGES_SAFETY_VALVE) {
         const page = await fetchPage(def.value, {
@@ -137,6 +149,27 @@ async function pullEndpoint(def: EndpointDef, requestedYear: string, fresh: bool
             isComplete = true;
             break;
         }
+
+        // An endpoint that silently ignores its pagination parameter keeps
+        // answering with page one, which every termination check below reads as
+        // "more data" -- the loop then runs to the safety valve, holding
+        // millions of duplicated rows in memory. Stop at the first repeat and
+        // report it, rather than storing the same page thousands of times.
+        const signature = pageSignature(page.rows);
+        if (signature === previousSignature) {
+            return {
+                endpoint: def.value,
+                status: 'failed',
+                pagesFetched,
+                newRecords: 0,
+                duplicatesSkipped: 0,
+                totalRecords: info.rowCount,
+                error:
+                    `pagination is not advancing -- page ${pagesFetched + 1} repeats the previous one. ` +
+                    `Check the '${def.pagination}' pagination style declared in endpoint-registry.ts.`,
+            };
+        }
+        previousSignature = signature;
 
         collected.push(...page.rows);
         pagesFetched++;

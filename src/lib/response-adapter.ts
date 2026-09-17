@@ -26,6 +26,21 @@ export interface AdaptedResponse {
     apiError: { code: string; message: string } | null;
 }
 
+/**
+ * Shape drift is a property of the endpoint, not of the page, so warn once per
+ * endpoint instead of once per request -- a long sync otherwise prints the same
+ * line hundreds of times, interleaved with whatever progress the caller writes.
+ */
+const warnedShapeDrift = new Set<string>();
+
+function warnShapeDrift(endpoint: string, expected: ResponseShape, found: ResponseShape): void {
+    const key = `${endpoint}|${expected}|${found}`;
+    if (warnedShapeDrift.has(key)) return;
+
+    warnedShapeDrift.add(key);
+    console.warn(`[adapter] ${endpoint}: expected shape "${expected}" but found "${found}"`);
+}
+
 function isPlainObject(value: unknown): value is DataRecord {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -100,7 +115,7 @@ export function adaptResponse(payload: unknown, options: AdaptOptions = {}): Ada
             : rows;
 
         if (expectedShape && shape !== expectedShape && endpoint) {
-            console.warn(`[adapter] ${endpoint}: expected shape "${expectedShape}" but found "${shape}"`);
+            warnShapeDrift(endpoint, expectedShape, shape);
         }
 
         return { rows: stamped, cursor: null, hasMore: false, detectedShape: shape, apiError: null, ...rest };

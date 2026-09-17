@@ -60,7 +60,7 @@ interface EndpointStatus {
     group: 'data' | 'dashboard';
     category: string;
     kind: 'dataset' | 'aggregate' | 'reference';
-    status: 'ready' | 'requires-id' | 'needs-params';
+    status: 'ready' | 'requires-id' | 'needs-params' | 'unavailable';
     yearScoped: boolean;
     years: YearStatus[];
     lastSynced: string | null;
@@ -363,11 +363,17 @@ export function SyncManager({ year, onSyncComplete, onYearChange }: SyncManagerP
                     title={
                         endpoint.status === 'requires-id'
                             ? 'Endpoint ini butuh ID spesifik (kd_penyedia, kd_komoditas, ...)'
-                            : 'API menolak semua kombinasi parameter yang diketahui (HTTP 400)'
+                            : endpoint.status === 'unavailable'
+                                ? 'Endpoint ini tidak tersedia di API (HTTP 404)'
+                                : 'API menolak semua kombinasi parameter yang diketahui (HTTP 400)'
                     }
                 >
                     <Ban className="h-3 w-3" />
-                    {endpoint.status === 'requires-id' ? 'Butuh ID' : 'Butuh Parameter'}
+                    {endpoint.status === 'requires-id'
+                        ? 'Butuh ID'
+                        : endpoint.status === 'unavailable'
+                            ? 'Tidak Tersedia'
+                            : 'Butuh Parameter'}
                 </Badge>
             );
         }

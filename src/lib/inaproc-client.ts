@@ -120,6 +120,28 @@ async function fetchWithRetry(url: string): Promise<Response> {
         : new ApiError('Upstream request failed', 502);
 }
 
+/**
+ * Read a `success: false` envelope out of an error response body, or return
+ * null when the body is not one (an HTML error page, a proxy timeout, ...),
+ * which stays a thrown ApiError.
+ */
+function parseRejection(body: string): AdaptedResponse | null {
+    if (!body) return null;
+
+    let payload: unknown;
+    try {
+        payload = JSON.parse(body);
+    } catch {
+        return null;
+    }
+
+    if (typeof payload !== 'object' || payload === null) return null;
+    if ((payload as Record<string, unknown>).success !== false) return null;
+
+    const adapted = adaptResponse(payload);
+    return adapted.apiError ? adapted : null;
+}
+
 export interface FetchPageOptions extends RequestParams {
     /** Stamp rows with `_snapshot_at`; used for dashboard aggregates. */
     snapshotAt?: string;
@@ -143,6 +165,17 @@ export async function fetchPage(endpoint: string, options: FetchPageOptions = {}
 
     if (!response.ok) {
         const detail = await response.text().catch(() => '');
+
+        // The API delivers business rejections with a 4xx status AND a
+        // `success: false` envelope naming the reason (e.g. 400 + code 1004,
+        // "Permintaan tidak valid"). Throwing on the status alone discarded
+        // that body and reported only "Upstream returned 400", so surface it
+        // through the same `apiError` channel as a 200-wrapped rejection.
+        const rejection = parseRejection(detail);
+        if (rejection) {
+            return { ...rejection, detectedShape: def.shape };
+        }
+
         throw new ApiError(`Upstream returned ${response.status}`, response.status, detail);
     }
 
