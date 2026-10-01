@@ -44,9 +44,15 @@ dan pengelompokan UI.
 
 Setiap endpoint punya `status` yang menentukan apakah bisa diambil:
 
-- **`ready`** (91) — bisa di-browse dan di-sync.
-- **`requires-id`** (8) — butuh identifier per record (`kd_penyedia`, `kd_komoditas`, …),
-  jadi tidak bisa ditarik massal.
+- **`ready`** (85) — bisa di-browse dan di-sync.
+- **`requires-id`** (9) — butuh identifier per record (`kd_penyedia`, `kd_komoditas`, …),
+  jadi tidak bisa ditarik massal. Termasuk `/v1/ekatalog/list-produk-penyedia`, yang membalas
+  HTTP 400 sampai `?kode_penyedia=` disertakan.
+- **`unavailable`** (5) — alamatnya sendiri tidak dilayani API: balasannya teks polos
+  `404 page not found`, bukan JSON galat, jadi tidak ada parameter yang bisa menolong. Ini
+  berlaku untuk seluruh keluarga `/v1/dashboard/pembayaran/*` (`summary`, `table`,
+  `geo/eselon`, `geo/instansi`, `geo/satker`). Tetap terdaftar; ubah `status` menjadi
+  `'ready'` bila LKPP mengaktifkannya.
 - **`needs-params`** (4) — API mengembalikan HTTP 400 untuk **semua** kombinasi parameter yang
   sudah dicoba (12 kombinasi, plus POST → 405). Parameter wajibnya belum terdokumentasi:
   - `/v1/dashboard/rup/detail`
@@ -180,13 +186,15 @@ tidak). Karena itu deteksi dilakukan secara struktural, bukan berdasarkan deklar
 | Bentuk | Contoh endpoint |
 |---|---|
 | `[ {...} ]` | semua endpoint legacy |
-| `{ data: [...], meta }` | dataset v1 |
+| `{ data: [...], meta }` | dataset v1, `/v1/dashboard/{rup,realisasi}/table` |
 | `{ data: { items: [] } }` | `/v1/dashboard/*/geo/*` |
-| `{ data: { rows: [] } }` | `/v1/dashboard/*/table` |
+| `{ data: { rows: [] } }` | `/v1/dashboard/afirmasi/table` |
 | `{ data: {...} }` | `/v1/dashboard/*/summary`, `last-update` |
-| `{ data: { data: {...} } }` | `/v1/dashboard/profil/precomputed` |
+| `{ data: { data: {...} } }` | `/v1/dashboard/profil/{summary,table,precomputed}` |
 
-Paginasi dibaca dari `meta.cursor` dan `meta.has_more`.
+Paginasi dibaca dari `meta.cursor` dan `meta.has_more`. Tabel dashboard juga memakai cursor;
+`?offset=` diabaikan API, sehingga penarikan berbasis offset mengambil halaman pertama
+berulang-ulang.
 
 ---
 
@@ -198,6 +206,7 @@ Paginasi dibaca dari `meta.cursor` dan `meta.has_more`.
 - **Penjadwalan belum berjalan.** Konfigurasinya tersimpan, tetapi menjalankan sync terjadwal
   butuh proses yang hidup lebih lama dari sebuah request. UI-nya disembunyikan sampai itu ada.
 - **Empat endpoint `needs-params`** (lihat di atas) belum bisa diambil.
+- **Lima endpoint `unavailable`** (keluarga dashboard pembayaran) tidak dilayani API.
 - **Ekspor dari API langsung dibatasi 200 halaman.** Bila tercapai, respons menyertakan header
   `X-Export-Truncated: true` dan UI memperingatkan. Sinkronkan endpointnya untuk ekspor penuh
   dari file lokal.
