@@ -37,7 +37,8 @@ export type ResponseShape =
 /**
  * Whether the endpoint can actually be called with the parameters we know:
  * - ready        : callable with tahun/kode_klpd
- * - requires-id  : needs a record identifier (kd_penyedia, kd_komoditas, ...)
+ * - requires-id  : needs a record identifier (kd_penyedia, kode_penyedia,
+ *                  kd_komoditas, ...)
  * - needs-params : returns HTTP 400 for every documented parameter combination
  *                  we tried; the required parameter is unknown. Verified
  *                  2026-07-26 against 12 combinations; POST returns 405.
@@ -271,12 +272,14 @@ const V1_EKATALOG: EndpointDef[] = [
         yearScoped: false,
         klpdScoped: false,
     }),
-    // HTTP 400 / code 1004 "Permintaan tidak valid" for every combination probed
-    // 2026-09-17: no parameters, limit, kode_klpd, tahun, kd_penyedia.
+    // Lists one supplier's products, so it cannot be pulled in bulk. HTTP 400 /
+    // code 1004 "Permintaan tidak valid" for no parameters, limit, kode_klpd,
+    // tahun and kd_penyedia (probed 2026-09-17); the parameter it wants is
+    // ?kode_penyedia=, which answers HTTP 200 (probed 2026-10-01).
     def('/v1/ekatalog/list-produk-penyedia', 'List Produk Penyedia', 'v1', 'data', 'E-Katalog', {
         ...v1Dataset(),
         kind: 'reference',
-        status: 'needs-params',
+        status: 'requires-id',
         yearScoped: false,
         klpdScoped: false,
     }),

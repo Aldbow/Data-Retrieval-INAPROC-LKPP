@@ -172,8 +172,14 @@ describe('sync eligibility', () => {
             '/v1/dashboard/realisasi/detail/paket',
             '/v1/dashboard/realisasi/filters/status-paket',
             '/v1/dashboard/rup/detail',
-            '/v1/ekatalog/list-produk-penyedia',
         ]);
+    });
+
+    // Its required parameter is known -- ?kode_penyedia= answers HTTP 200
+    // (probed 2026-10-01) -- so it is a per-supplier lookup, not an endpoint
+    // whose parameters are still a mystery.
+    it('treats list-produk-penyedia as needing an id', () => {
+        assert.equal(getEndpoint('/v1/ekatalog/list-produk-penyedia')?.status, 'requires-id');
     });
 
     // The whole pembayaran family answers 404 (probed 2026-09-17). Syncing it
