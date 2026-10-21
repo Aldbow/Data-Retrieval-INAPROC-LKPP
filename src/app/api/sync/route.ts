@@ -18,7 +18,7 @@ import {
 } from '@/lib/storage-service';
 import { getDatasetPaths, isValidYear, UnsafePathError } from '@/lib/drive-config';
 import { getEndpoint } from '@/lib/endpoint-registry';
-import { fetchPage, ApiError } from '@/lib/inaproc-client';
+import { fetchPage, describeFailure, UpstreamUnavailableError } from '@/lib/inaproc-client';
 import type { DataRecord } from '@/lib/response-adapter';
 
 export const dynamic = 'force-dynamic';
@@ -227,14 +227,15 @@ export async function POST(request: Request) {
             return badRequest('Invalid endpoint or year');
         }
 
-        // Upstream detail goes to the server log only; the client gets a
-        // generic message so API internals are not echoed back.
-        console.error(`[sync] ${endpointValue} ${year ?? ''} failed:`, error);
-
-        const status = error instanceof ApiError && error.status === 500 ? 500 : 502;
-        return NextResponse.json(
-            { success: false, error: 'Sync gagal. Periksa log server untuk detail.' },
-            { status },
+        // Upstream detail goes to the server log only; the client gets either
+        // our own outage message or a generic one, never API internals. An
+        // outage is already summed up by its message, so it skips the stack.
+        console.error(
+            `[sync] ${endpointValue} ${year ?? ''} failed:`,
+            error instanceof UpstreamUnavailableError ? error.message : error,
         );
+
+        const { status, message } = describeFailure(error, 'Sync gagal. Periksa log server untuk detail.');
+        return NextResponse.json({ success: false, error: message }, { status });
     }
 }

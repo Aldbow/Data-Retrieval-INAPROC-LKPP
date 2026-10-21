@@ -16,7 +16,7 @@ import * as XLSX from 'xlsx';
 import { getEndpoint } from '@/lib/endpoint-registry';
 import { isValidYear, getDatasetPaths, type StorageFormat, STORAGE_FORMATS } from '@/lib/drive-config';
 import { readCanonical, toCsv, toWorkbook } from '@/lib/storage-service';
-import { fetchPage, ApiError } from '@/lib/inaproc-client';
+import { fetchPage, describeFailure, UpstreamUnavailableError } from '@/lib/inaproc-client';
 import type { DataRecord } from '@/lib/response-adapter';
 
 export const dynamic = 'force-dynamic';
@@ -161,8 +161,11 @@ export async function GET(request: Request) {
             },
         });
     } catch (error) {
-        console.error(`[export] ${endpoint} failed:`, error);
-        const status = error instanceof ApiError && error.status === 500 ? 500 : 502;
-        return NextResponse.json({ error: 'Gagal membuat file ekspor' }, { status });
+        console.error(
+            `[export] ${endpoint} failed:`,
+            error instanceof UpstreamUnavailableError ? error.message : error,
+        );
+        const { status, message } = describeFailure(error, 'Gagal membuat file ekspor');
+        return NextResponse.json({ error: message }, { status });
     }
 }

@@ -85,6 +85,7 @@ CSV dan XLSX dibuat setelah sebuah endpoint selesai (`complete`), bukan per hala
 | `API menolak permintaan (1004): Permintaan tidak valid` | Endpoint butuh parameter yang tidak dikirim skrip | Bila butuh ID per record, ubah `status`-nya menjadi `'requires-id'` di [endpoint-registry.ts](../src/lib/endpoint-registry.ts) |
 | `API menolak permintaan (...)` dengan kode lain | API INAPROC menolak, sering karena token kedaluwarsa | Perbarui token, lalu jalankan ulang |
 | `Upstream returned 404` | Alamat endpoint tidak dilayani API | Ubah `status`-nya menjadi `'unavailable'` di registry supaya dilewati |
+| `Upstream returned 503 (5 attempts)`, atau di UI: "Server API INAPROC sedang tidak tersedia" | Server INAPROC sedang gangguan; aplikasi sudah mencoba ulang selama ~15 detik | Tunggu beberapa menit, lalu jalankan ulang. Data yang sudah tersimpan aman, dan penarikan melanjutkan dari titik terakhir yang tersimpan |
 | `pagination is not advancing` | API mengabaikan parameter paginasi dan mengirim halaman yang sama | Sesuaikan `pagination` endpoint itu di registry (`cursor` atau `offset`) |
 | `[adapter] ... expected shape ... but found ...` | API mengubah bentuk responsnya; data tetap terbaca | Sesuaikan `shape` endpoint itu di registry agar peringatannya hilang |
 

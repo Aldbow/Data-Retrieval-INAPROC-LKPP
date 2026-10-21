@@ -121,6 +121,9 @@ export default function Home() {
         },
         getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.cursor ?? undefined : undefined),
         enabled: isBrowsable,
+        // The server already retries the API for ~15 seconds; retrying that
+        // again here only delays the error message by about a minute.
+        retry: false,
         initialPageParam: null as string | null,
     });
 

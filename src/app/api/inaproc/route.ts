@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 import { getEndpoint } from '@/lib/endpoint-registry';
 import { isValidYear } from '@/lib/drive-config';
-import { fetchPage, ApiError } from '@/lib/inaproc-client';
+import { fetchPage, describeFailure, UpstreamUnavailableError } from '@/lib/inaproc-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,8 +69,11 @@ export async function GET(request: Request) {
         });
     } catch (error) {
         // Upstream text is logged but not returned, so API internals stay server-side.
-        console.error(`[inaproc] ${endpoint} failed:`, error);
-        const status = error instanceof ApiError && error.status === 500 ? 500 : 502;
-        return NextResponse.json({ error: 'Gagal mengambil data dari API INAPROC' }, { status });
+        console.error(
+            `[inaproc] ${endpoint} failed:`,
+            error instanceof UpstreamUnavailableError ? error.message : error,
+        );
+        const { status, message } = describeFailure(error, 'Gagal mengambil data dari API INAPROC');
+        return NextResponse.json({ error: message }, { status });
     }
 }
